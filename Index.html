@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NightFlight — Solar Flight Log Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#020408;font-family:'Rajdhani',sans-serif;color:#c8d8f0;overflow:hidden}
+#app{display:grid;grid-template-rows:52px 1fr;height:100vh}
+
+/* HEADER */
+header{background:#080c18;border-bottom:1px solid #1a3a5f;padding:0 24px;display:flex;align-items:center;justify-content:space-between;z-index:10;position:relative}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-text{font-size:18px;font-weight:600;letter-spacing:4px;color:#e8f4ff;text-transform:uppercase}
+.logo-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:#ffffff;letter-spacing:2px}
+nav{display:flex;gap:20px;font-size:11px;letter-spacing:2px;color:#ffffff;text-transform:uppercase}
+nav span{cursor:pointer;transition:color .2s}
+nav span:hover{color:#7eb8e0}
+nav span.active{color:#5bc8f5;border-bottom:1px solid #5bc8f5;padding-bottom:2px}
+
+/* MAIN */
+main{display:grid;grid-template-columns:290px 1fr;overflow:hidden;position:relative}
+
+/* LEFT PANEL */
+#panel{background:#080c18;border-right:1px solid #1a3a5f;padding:18px 16px;display:flex;flex-direction:column;overflow-y:auto;z-index:5}
+.section-label{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:3px;color:#ffffff;text-transform:uppercase;margin:14px 0 8px;font-weight:700}
+.section-label:first-child{margin-top:0}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:10px;letter-spacing:2px;color:#ffffff;text-transform:uppercase;margin-bottom:4px;font-weight:700}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+input[type=text],input[type=date]{width:100%;background:#0b1520;border:1px solid #1a3a5f;border-radius:5px;padding:8px 10px;color:#7eb8e0;font-family:'Share Tech Mono',monospace;font-size:13px;letter-spacing:2px;outline:none;transition:border-color .2s}
+input[type=text]:focus,input[type=date]:focus{border-color:#2a6fa8;color:#c8e8ff}
+input::placeholder{color:#1a3a5f}
+input.error{border-color:#e74c3c}
+.ap-status{font-family:'Share Tech Mono',monospace;font-size:9px;margin-top:3px;min-height:12px;letter-spacing:1px}
+.ap-status.ok{color:#2ecc71}.ap-status.err{color:#e74c3c}.ap-status.loading{color:#f5a623}
+.mode-group{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:10px}
+.mode-btn{background:#0b1520;border:1px solid #1a3a5f;border-radius:4px;padding:6px 4px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;color:#ffffff;cursor:pointer;text-align:center;transition:all .2s;text-transform:uppercase}
+.mode-btn:hover{border-color:#2a6fa8;color:#7eb8e0}
+.mode-btn.active{background:#0d3a6e;border-color:#1e6abf;color:#5bc8f5}
+#btn-calc{background:#0d3a6e;border:1px solid #1e6abf;border-radius:7px;color:#5bc8f5;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:4px;text-transform:uppercase;padding:11px;cursor:pointer;width:100%;margin-top:6px;transition:background .2s}
+#btn-calc:hover{background:#0f4a8a}
+#btn-calc:disabled{opacity:.4;cursor:not-allowed}
+.divider{border:none;border-top:1px solid #1a3a5f;margin:14px 0}
+#results{display:none}
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.result-card{background:#0b1520;border:1px solid #1a3a5f;border-radius:7px;padding:10px 12px}
+.result-card .rl{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:2px;color:#ffffff;text-transform:uppercase;margin-bottom:3px;font-weight:700}
+.result-card .rv{font-family:'Share Tech Mono',monospace;font-size:20px;color:#5bc8f5}
+.result-card .rv.day{color:#f5a623}
+.result-card.full{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.badge{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:2px;padding:4px 12px;border-radius:4px;font-weight:600}
+.badge.yes{background:#2ecc71;color:#071a07}.badge.no{background:#c0392b;color:#fff}
+.solar-times{background:#0b1520;border:1px solid #1a3a5f;border-radius:7px;padding:10px 12px;margin-bottom:8px}
+.solar-row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid #0f2035}
+.solar-row:last-child{border-bottom:none}
+.solar-row .sl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;color:#4a9abe}
+.solar-row .sv{font-family:'Share Tech Mono',monospace;font-size:11px;color:#7eb8e0}
+#btn-animate{background:#071a35;border:1px solid #1a4a6e;border-radius:7px;color:#3a8ab0;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;padding:9px;cursor:pointer;width:100%;margin-top:6px;transition:all .2s}
+#btn-animate:hover{background:#0d3a6e;border-color:#1e6abf;color:#5bc8f5}
+#btn-animate.playing{color:#f5a623;border-color:#f5a623}
+
+/* GLOBE AREA */
+#globe-wrap{position:relative;overflow:hidden;background:#000508;cursor:grab}
+#globe-wrap:active{cursor:grabbing}
+#globe-canvas{position:absolute;inset:0;width:100%!important;height:100%!important}
+
+/* CSS LABELS — crisp, sharp, no canvas texture fuzzing */
+#label-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.ap-label{position:absolute;transform:translate(-50%,-100%);margin-top:-8px;
+  font-family:'Share Tech Mono',monospace;font-size:13px;font-weight:bold;
+  letter-spacing:3px;padding:3px 8px;border-radius:4px;white-space:nowrap;
+  text-shadow:0 0 8px currentColor;display:none}
+.ap-label.dep{color:#f5c842;background:rgba(0,0,0,0.55);border:1px solid rgba(245,200,66,0.3)}
+.ap-label.dest{color:#5bc8f5;background:rgba(0,0,0,0.55);border:1px solid rgba(91,200,245,0.3)}
+
+/* HUD */
+#hud{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);
+  background:rgba(8,12,24,.88);border:1px solid #1a3a5f;border-radius:8px;
+  padding:8px 22px;font-family:'Share Tech Mono',monospace;font-size:11px;
+  letter-spacing:2px;display:none;text-align:center;min-width:360px;pointer-events:none}
+#hud-time{color:#f5a623;font-size:13px;margin-bottom:3px}
+#hud-stats{color:#5bc8f5}
+
+/* Progress */
+#progress-wrap{position:absolute;bottom:26px;left:20px;right:20px;display:none;pointer-events:none}
+#progress-bar{height:2px;background:#1a3a5f;border-radius:1px}
+#progress-fill{height:100%;width:0%;background:#5bc8f5;border-radius:1px}
+#progress-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:#ffffff;text-align:center;margin-top:4px;letter-spacing:1px}
+
+/* Status bar */
+#status-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(8,12,24,.92);
+  border-top:1px solid #1a3a5f;padding:6px 18px;display:flex;justify-content:space-between;
+  font-family:'Share Tech Mono',monospace;font-size:9px;color:#ffffff;letter-spacing:1px;z-index:4}
+.sdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#2ecc71;margin-right:5px;vertical-align:middle}
+.sdot.busy{background:#f5a623}
+
+/* Loading */
+#loading{position:absolute;inset:0;background:rgba(2,4,8,.9);display:none;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:20}
+#loading.show{display:flex}
+.spinner{width:36px;height:36px;border:2px solid #1a3a5f;border-top-color:#5bc8f5;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-text{font-family:'Share Tech Mono',monospace;font-size:11px;letter-spacing:3px;color:#3a6a90}
+
+@media(max-width:700px){
+  main{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  #panel{max-height:42vh;overflow-y:auto}
+  html,body{overflow:auto}
+  #app{height:auto}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="logo">
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="14" stroke="#1e6abf" stroke-width="1"/>
+      <path d="M6 16 Q16 6 26 16" stroke="#5bc8f5" stroke-width="1.5" fill="none"/>
+      <path d="M6 16 Q16 26 26 16" stroke="#1e3a5f" stroke-width="1" fill="none" stroke-dasharray="2 2"/>
+      <circle cx="16" cy="16" r="1.5" fill="#5bc8f5"/>
+      <path d="M10 13 L16 10 L22 13" stroke="#f5a623" stroke-width="1.2" fill="none"/>
+      <circle cx="10" cy="13" r="2" fill="#f5a623"/>
+      <circle cx="22" cy="13" r="2" fill="#2e6a9a"/>
+    </svg>
+    <div>
+      <div class="logo-text">NightFlight</div>
+      <div class="logo-sub">Solar Flight Log Calculator</div>
+    </div>
+  </div>
+  <nav><span class="active">Calculate</span><span>Logbook</span><span>About</span></nav>
+</header>
+<main>
+<div id="panel">
+  <div class="section-label">Route</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Departure</label>
+      <input type="text" id="dep" placeholder="KJFK" maxlength="4" autocomplete="off" style="text-transform:uppercase" inputmode="text"/>
+      <div class="ap-status" id="dep-status"></div>
+    </div>
+    <div class="field">
+      <label>Destination</label>
+      <input type="text" id="dest" placeholder="EDDF" maxlength="4" autocomplete="off" style="text-transform:uppercase" inputmode="text"/>
+      <div class="ap-status" id="dest-status"></div>
+    </div>
+  </div>
+  <div class="section-label">Departure (UTC)</div>
+  <div class="field-row">
+    <div class="field"><label>Date</label><input type="date" id="dep-date" value="2026-12-21"/></div>
+    <div class="field"><label>Time (HHMM)</label><input type="text" id="dep-time" placeholder="0000" value="1200" maxlength="4" inputmode="numeric" autocomplete="off"/></div>
+  </div>
+  <div class="section-label">Flight Time</div>
+  <div class="field-row">
+    <div class="field"><label>Duration (H+MM)</label><input type="text" id="flt-time" placeholder="0+00" value="15+00" maxlength="5" inputmode="numeric" autocomplete="off"/></div>
+    <div class="field"><label>Avg GS (kts)</label><input type="text" id="gnd-spd" placeholder="auto" value="480" inputmode="numeric" autocomplete="off"/></div>
+  </div>
+  <div class="section-label">Night Definition</div>
+  <div class="mode-group">
+    <div class="mode-btn active" data-thresh="-6">Civil<br/>−6°</div>
+    <div class="mode-btn" data-thresh="-18">Astronomical<br/>−18°</div>
+    <div class="mode-btn" data-thresh="-12">Nautical<br/>−12°</div>
+  </div>
+  <button id="btn-calc">&#9654;&nbsp; Calculate</button>
+  <hr class="divider"/>
+  <div id="results">
+    <div class="section-label">Results</div>
+    <div class="result-grid">
+      <div class="result-card"><div class="rl">Night Time</div><div class="rv" id="r-night-dec">—</div></div>
+      <div class="result-card"><div class="rl">Day Time</div><div class="rv day" id="r-day-dec">—</div></div>
+      <div class="result-card full"><div class="rl">Distance</div><div class="rv" id="r-dist" style="color:#a0d8f0">—</div><div class="rl" style="margin-left:8px;align-self:center">NM</div></div>
+      <div class="result-card full"><div class="rl">Night Landing</div><div class="badge" id="r-landing">—</div></div>
+    </div>
+    <div class="solar-times">
+      <div class="solar-row"><span class="sl" id="dep-set-lbl">DEP Sunset +1hr</span><span class="sv" id="dep-sunset">—</span></div>
+      <div class="solar-row"><span class="sl" id="dep-rise-lbl">DEP Sunrise −1hr</span><span class="sv" id="dep-sunrise">—</span></div>
+      <div class="solar-row"><span class="sl" id="dest-set-lbl">DEST Sunset +1hr</span><span class="sv" id="dest-sunset">—</span></div>
+      <div class="solar-row"><span class="sl" id="dest-rise-lbl">DEST Sunrise −1hr</span><span class="sv" id="dest-sunrise">—</span></div>
+    </div>
+    <button id="btn-animate">&#9654;&nbsp; Animate Flight</button>
+  </div>
+</div>
+
+<div id="globe-wrap">
+  <canvas id="globe-canvas"></canvas>
+  <!-- CSS label layer — crisp DOM text, not canvas sprites -->
+  <div id="label-layer">
+    <div class="ap-label dep" id="lbl-dep">KBGR</div>
+    <div class="ap-label dest" id="lbl-dest">VHHH</div>
+  </div>
+  <div id="hud"><div id="hud-time">—</div><div id="hud-stats">—</div></div>
+  <div id="progress-wrap">
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+    <div id="progress-label"></div>
+  </div>
+  <div id="status-bar">
+    <span><span class="sdot" id="sdot"></span><span id="status-text">LOADING...</span></span>
+    <span>WGS-84 · NOAA SOLAR</span>
+    <span id="status-time"></span>
+  </div>
+  <div id="loading"><div class="spinner"></div><div id="loading-text">LOADING EARTH TEXTURE...</div></div>
+</div>
+</main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// FIELD AUTO-CLEAR ON FOCUS
+// ═══════════════════════════════════════════
+// Numeric-only enforcement on time fields
+['dep','dest','gnd-spd'].forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  // Desktop
+  el.addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
+  // iOS Safari — touchstart then select after keyboard appears
+  el.addEventListener('touchstart', function(){
+    const self = this;
+    setTimeout(()=>{ self.focus(); self.select(); }, 100);
+  }, {passive:true});
+});
+
+// ═══════════════════════════════════════════
+// FIELD FORMATTING — format on blur (when user leaves field)
+// User types naturally: "100" or "0100" for time, "400" for flight time
+// On blur: pad/format to correct display
+// ═══════════════════════════════════════════
+
+// Departure time: strip non-digits, take last 4, pad left with zeros
+// "100" → "0100", "1200" → "1200"
+document.getElementById('dep-time').addEventListener('focus', function(){
+  setTimeout(()=>this.select(), 10);
+});
+document.getElementById('dep-time').addEventListener('blur', function(){
+  let d = this.value.replace(/[^0-9]/g,'').slice(-4);
+  if(!d) d = '0000';
+  this.value = d.padStart(4,'0');
+});
+
+// Flight time: strip non-digits, take last 4, format as H+MM or HH+MM
+// "400" → "4+00", "1500" → "15+00", "730" → "7+30"
+document.getElementById('flt-time').addEventListener('focus', function(){
+  setTimeout(()=>this.select(), 10);
+});
+document.getElementById('flt-time').addEventListener('blur', function(){
+  let d = this.value.replace(/[^0-9]/g,'');
+  if(!d){ this.value = ''; return; }
+  d = d.slice(-4); // max 4 digits
+  const mins = d.slice(-2).padStart(2,'0');
+  const hrs = d.slice(0,-2) || '0';
+  this.value = hrs + '+' + mins;
+});
+function autoCalcGS(){
+  if(!S.result) return;
+  const fMins = parseFT(document.getElementById('flt-time').value);
+  if(fMins > 0 && S.result.distNM){
+    const gs = Math.round(S.result.distNM / (fMins/60));
+    document.getElementById('gnd-spd').value = gs;
+  }
+}
+
+
+const DEG=Math.PI/180,RAD=180/Math.PI;
+
+// ═══════════════════════════════════════════
+// COORDINATE SYSTEM
+// Three.js SphereGeometry with standard equirectangular texture:
+//   phi   = (90 - lat) * DEG   (colatitude from +Y)
+//   theta = (lon + 180) * DEG  (longitude, 0 = back of sphere)
+//   x = -sin(phi)*cos(theta)
+//   y =  cos(phi)
+//   z =  sin(phi)*sin(theta)
+// This matches the Blue Marble texture exactly.
+// ═══════════════════════════════════════════
+function geo2v3(lat, lon, r){
+  r = r || 1;
+  const phi = (90 - lat) * DEG;
+  const theta = (lon + 180) * DEG;
+  return new THREE.Vector3(
+    -r * Math.sin(phi) * Math.cos(theta),
+     r * Math.cos(phi),
+     r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+const S = {
+  dep: null, dest: null, result: null,
+  animating: false, animFrame: null,
+  threshold: -6,
+  rotY: 0, rotX: 0,
+  dragging: false, dragX: 0, dragY: 0,
+  velY: 0, velX: 0,
+  apDots: [],  // airport marker dot meshes
+  // Animation orientations
+  act1RotX: 0, act1RotY: 0,
+  act2RotX: 0, act2RotY: 0,
+  arrivalRotX: 0,  // target rotX at arrival — camera elevation
+  arrivalRotY: 0,  // target rotY at arrival — camera azimuth
+  rotDir: -1,
+};
+
+// ═══════════════════════════════════════════
+// THREE.JS SETUP
+// ═══════════════════════════════════════════
+const wrap = document.getElementById('globe-wrap');
+const canvas = document.getElementById('globe-canvas');
+const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.4;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000407);
+
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
+camera.position.set(0, 0, 2.8);
+camera.lookAt(0, 0, 0);
+
+// Stars
+const sv = [];
+for(let i = 0; i < 7000; i++){
+  const th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1), r = 60+Math.random()*20;
+  sv.push(r*Math.sin(ph)*Math.cos(th), r*Math.sin(ph)*Math.sin(th), r*Math.cos(ph));
+}
+const sGeo = new THREE.BufferGeometry();
+sGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
+scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({color:0xffffff,size:0.09,sizeAttenuation:true,transparent:true,opacity:0.8})));
+
+// ── EARTH MESH — user rotates this directly ──
+const earthGeo = new THREE.SphereGeometry(1, 96, 96);
+const earthMat = new THREE.MeshPhongMaterial({color: 0x1a3a6e, specular: 0x0a0a0a, shininess: 4});
+const earth = new THREE.Mesh(earthGeo, earthMat);
+scene.add(earth);
+
+// Route group — child of Earth so it rotates with it
+const routeGroup = new THREE.Group();
+earth.add(routeGroup);
+
+// Aircraft — also child of Earth
+const acMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.022, 16, 16),
+  new THREE.MeshBasicMaterial({color: 0xff00cc, depthTest: false})
+);
+acMesh.renderOrder = 1002;
+acMesh.visible = false;
+earth.add(acMesh);
+
+const acRing = new THREE.Mesh(
+  new THREE.RingGeometry(0.032, 0.042, 32),
+  new THREE.MeshBasicMaterial({color: 0xff00cc, side: THREE.DoubleSide, transparent: true, opacity: 0.6, depthTest: false})
+);
+acRing.renderOrder = 1002;
+acRing.visible = false;
+earth.add(acRing);
+
+// Scale aircraft size to camera distance so it appears same visual size regardless of zoom
+function scaleAircraft(){
+  const dist = S.camDist || 2.6;
+  // At dist=2.6 (default), scale=1.0. Closer camera = smaller aircraft in world space
+  const s = dist / 2.6;
+  acMesh.scale.setScalar(s);
+  acRing.scale.setScalar(s);
+}
+
+// Atmosphere glow
+const atmMat = new THREE.ShaderMaterial({
+  transparent: true, side: THREE.FrontSide,
+  uniforms: {c: {value: new THREE.Color(0x2060b0)}},
+  vertexShader: `varying float i;void main(){vec3 n=normalize(normalMatrix*normal);vec3 v=normalize(cameraPosition-vec3(modelMatrix*vec4(position,1.0)));i=pow(max(0.0,1.0-abs(dot(n,v))),3.0);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  fragmentShader: `uniform vec3 c;varying float i;void main(){gl_FragColor=vec4(c*i,i*0.5);}`
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.018, 64, 64), atmMat));
+
+// ── LIGHTING ──
+// Sun light — repositioned each frame based on solar math
+const sunLight = new THREE.DirectionalLight(0xfffaf0, 4.5);
+// sunLight is child of earth — position in earth's LOCAL coordinate space
+// This means we set position using geo2v3(sunLat, sunLon) directly
+// and it automatically rotates with the earth
+earth.add(sunLight);
+// Target must also be child of earth for correct directional lighting
+const sunTarget = new THREE.Object3D();
+earth.add(sunTarget);
+sunTarget.position.set(0,0,0);
+sunLight.target = sunTarget;
+// Night side ambient — just enough to see continent shapes, very dark
+const nightAmbient = new THREE.AmbientLight(0x0a1020, 0.25);
+scene.add(nightAmbient);
+
+// ═══════════════════════════════════════════
+// TEXTURE
+// ═══════════════════════════════════════════
+const loader = new THREE.TextureLoader();
+loader.crossOrigin = 'anonymous';
+function loadTexture(){
+  const urls = [
+    'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+    'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg',
+  ];
+  let i = 0;
+  function next(){
+    if(i >= urls.length){done();return;}
+    loader.load(urls[i], tex => {
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      earth.material = new THREE.MeshPhongMaterial({map: tex, specular: new THREE.Color(0x080808), shininess: 4});
+      done();
+    }, undefined, () => {i++; next();});
+  }
+  function done(){
+    document.getElementById('loading').classList.remove('show');
+    setStatus('READY — DRAG TO ROTATE GLOBE', false);
+  }
+  next();
+}
+
+// ═══════════════════════════════════════════
+// SOLAR MATH
+// ═══════════════════════════════════════════
+function julianDay(yr,mo,dy,hr){
+  if(mo<=2){yr--;mo+=12;}
+  const A=Math.floor(yr/100),B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(yr+4716))+Math.floor(30.6001*(mo+1))+dy+hr/24+B-1524.5;
+}
+
+function solarElev(lat,lon,jd){
+  const T=(jd-2451545)/36525;
+  const L0=(280.46646+T*(36000.76983+T*0.0003032))%360;
+  const M=357.52911+T*(35999.05029-0.0001537*T),Mr=M*DEG;
+  const C=(1.914602-T*(0.004817+0.000014*T))*Math.sin(Mr)+(0.019993-0.000101*T)*Math.sin(2*Mr)+0.000289*Math.sin(3*Mr);
+  const sl=L0+C,om=125.04-1934.136*T;
+  const la=sl-0.00569-0.00478*Math.sin(om*DEG);
+  const e0=23+(26+(21.448-T*(46.815+T*(0.00059-T*0.001813)))/60)/60;
+  const ep=(e0+0.00256*Math.cos(om*DEG))*DEG;
+  const sd=Math.sin(ep)*Math.sin(la*DEG),dr=Math.asin(sd);
+  const y=Math.tan(ep/2)**2,L0r=L0*DEG,ec=0.016708634;
+  const eot=4*RAD*(y*Math.sin(2*L0r)-2*ec*Math.sin(Mr)+4*ec*y*Math.sin(Mr)*Math.cos(2*L0r)-0.5*y*y*Math.sin(4*L0r)-1.25*ec*ec*Math.sin(2*Mr));
+  const uh=((jd+0.5)%1)*24,tst=(uh*60+eot+4*lon)%1440;
+  let ha=tst/4-180;if(ha<-180)ha+=360;
+  const cz=Math.sin(lat*DEG)*sd+Math.cos(lat*DEG)*Math.cos(dr)*Math.cos(ha*DEG);
+  const zd=Math.acos(Math.max(-1,Math.min(1,cz)))*RAD,er=90-zd;
+  let rf=0;
+  if(er>5)rf=(58.1/Math.tan(er*DEG)-0.07/Math.tan(er*DEG)**3)/3600;
+  else if(er>-0.575)rf=(1735+er*(-518.2+er*(103.4+er*(-12.79+er*0.711))))/3600;
+  else rf=(-20.772/Math.tan(er*DEG))/3600;
+  return er+rf;
+}
+
+// Sun position in Earth's LOCAL coordinate space
+// Returns the 3D position of the subsolar point on the unit sphere
+// Since sunLight is a child of earth, this is exactly what we need
+function sunWorldDir(jd){
+  const T=(jd-2451545)/36525;
+  const L0=(280.46646+T*(36000.76983+T*0.0003032))%360;
+  const M=357.52911+T*(35999.05029-0.0001537*T),Mr=M*DEG;
+  const C=(1.914602-T*(0.004817+0.000014*T))*Math.sin(Mr)+(0.019993-0.000101*T)*Math.sin(2*Mr);
+  const sl=L0+C,om=125.04-1934.136*T;
+  const la=sl-0.00569-0.00478*Math.sin(om*DEG);
+  const e0=23+(26+(21.448-T*(46.815+T*(0.00059-T*0.001813)))/60)/60;
+  const ep=(e0+0.00256*Math.cos(om*DEG))*DEG;
+  const dec=Math.asin(Math.sin(ep)*Math.sin(la*DEG))*RAD;
+  const gmst=((280.46061837+360.98564736629*(jd-2451545))%360);
+  const ra=Math.atan2(Math.cos(ep)*Math.sin(la*DEG),Math.cos(la*DEG))*RAD;
+  let sunLon=((ra-gmst)%360+360)%360;
+  if(sunLon>180)sunLon-=360;
+  // geo2v3 gives position in Earth's local space — correct since sunLight is child of earth
+  return geo2v3(dec, sunLon, 1).normalize();
+}
+
+// ═══════════════════════════════════════════
+// SLERP GREAT CIRCLE
+// ═══════════════════════════════════════════
+function slerp(la1,lo1,la2,lo2,f){
+  // Work in standard lat/lon space for the math
+  const v=(a,b)=>{const r=a*DEG,g=b*DEG;return[Math.cos(r)*Math.cos(g),Math.cos(r)*Math.sin(g),Math.sin(r)];};
+  const u=(x,y,z)=>{const n=Math.sqrt(x*x+y*y+z*z);return{lat:Math.asin(z/n)*RAD,lon:Math.atan2(y,x)*RAD};};
+  const[a,b,c]=v(la1,lo1),[d,e,g]=v(la2,lo2);
+  const dot=Math.max(-1,Math.min(1,a*d+b*e+c*g)),om=Math.acos(dot);
+  if(om<1e-10)return{lat:la1,lon:lo1};
+  const s=Math.sin(om),sa=Math.sin((1-f)*om)/s,sb=Math.sin(f*om)/s;
+  return u(sa*a+sb*d,sa*b+sb*e,sa*c+sb*g);
+}
+
+// ═══════════════════════════════════════════
+// SOLAR EVENTS
+// ═══════════════════════════════════════════
+function solarEvents(lat,lon,yr,mo,dy,thr){
+  let rise=null,set=null,prev=null;
+  for(let m=0;m<1440;m++){
+    const el=solarElev(lat,lon,julianDay(yr,mo,dy,m/60));
+    if(prev!==null){
+      if(prev<thr&&el>=thr&&rise===null)rise=(m-1)+(thr-prev)/(el-prev);
+      if(prev>=thr&&el<thr&&set===null)set=(m-1)+(thr-prev)/(el-prev);
+    }
+    prev=el;
+  }
+  return{rise,set};
+}
+
+function fmtUTC(m){if(m===null)return'—';const h=Math.floor(m/60)%24,mn=Math.floor(m%60),s=Math.round((m%1)*60);return`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}:${String(s).padStart(2,'0')}Z`;}
+function fmtHM(m){return`${Math.floor(m/60)}+${String(m%60).padStart(2,'0')}`;}
+function fmtDec(m){return(Math.round(m/6)/10).toFixed(1)+' hrs';}
+
+// ═══════════════════════════════════════════
+// FLIGHT CALCULATION
+// ═══════════════════════════════════════════
+function calcFlight(dLa,dLo,tLa,tLo,yr,mo,dy,dH,fMins,thr){
+  const jd0=julianDay(yr,mo,dy,dH);
+  let night=0,day=0;
+  const track=[];
+  for(let m=0;m<=fMins;m++){
+    const f=m/fMins,pos=slerp(dLa,dLo,tLa,tLo,f);
+    const jd=jd0+m/1440,el=solarElev(pos.lat,pos.lon,jd),isN=el<thr;
+    if(m<fMins){isN?night++:day++;}
+    track.push({m,lat:pos.lat,lon:pos.lon,el,isN,jd});
+  }
+  // Arrival = departure date/time + flight minutes
+  const arr=new Date(Date.UTC(yr,mo-1,dy,dH,0,0));
+  arr.setUTCMinutes(arr.getUTCMinutes()+fMins);
+  const aY=arr.getUTCFullYear(),aM=arr.getUTCMonth()+1,aD=arr.getUTCDate();
+  const arrMin=arr.getUTCHours()*60+arr.getUTCMinutes();
+  const dSol=solarEvents(dLa,dLo,yr,mo,dy,-0.833);
+  const tSol=solarEvents(tLa,tLo,aY,aM,aD,-0.833);
+  const nStart=tSol.set!==null?tSol.set+60:null;
+  const nEnd=tSol.rise!==null?tSol.rise-60:null;
+  let nightLanding=false;
+  if(nStart!==null&&nEnd!==null){
+    if(nStart>nEnd){
+      // Night window crosses midnight
+      nightLanding=arrMin>=nStart||arrMin<=nEnd;
+    } else {
+      // Night window within same UTC day
+      nightLanding=arrMin>=nStart&&arrMin<=nEnd;
+    }
+  } else if(nStart!==null){
+    nightLanding=arrMin>=nStart;
+  } else if(nEnd!==null){
+    nightLanding=arrMin<=nEnd;
+  }
+  // Great circle distance in nautical miles
+  // Earth radius = 3440.065 NM
+  function gcDist(la1,lo1,la2,lo2){
+    const R=3440.065,d=Math.PI/180;
+    const dLat=(la2-la1)*d,dLon=(lo2-lo1)*d;
+    const a=Math.sin(dLat/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLon/2)**2;
+    return R*2*Math.asin(Math.sqrt(a));
+  }
+  const distNM = Math.round(gcDist(dLa,dLo,tLa,tLo));
+  return{night,day,track,nightLanding,distNM,jd0,fMins,
+    dSunset:fmtUTC(dSol.set!==null?dSol.set+60:null),dSunrise:fmtUTC(dSol.rise!==null?dSol.rise-60:null),
+    tSunset:fmtUTC(tSol.set!==null?tSol.set+60:null),tSunrise:fmtUTC(tSol.rise!==null?tSol.rise-60:null)};
+}
+
+// ═══════════════════════════════════════════
+// BUILD ROUTE — all children of earth mesh
+// so they rotate with the globe when user drags
+// ═══════════════════════════════════════════
+function buildRoute(){
+  while(routeGroup.children.length) routeGroup.remove(routeGroup.children[0]);
+  acMesh.visible = false;
+  acRing.visible = false;
+  if(!S.dep || !S.dest || !S.result) return;
+
+  const track = S.result.track;
+  const EXT = 0.08;
+  const STEPS = 200;
+
+  // Build point list with extensions
+  const pts = [];
+  for(let i = 0; i <= STEPS; i++){
+    const f = -EXT + (1 + 2*EXT) * (i / STEPS);
+    const fc = Math.max(0, Math.min(1, f));
+    const pos = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, fc);
+    pts.push({pos, inRoute: f >= 0 && f <= 1});
+  }
+
+  // Route beads — depthTest:false, renderOrder high
+  // White for main route, dim for extensions
+  const beadR = 0.006;
+  pts.forEach(rp => {
+    const v = geo2v3(rp.pos.lat, rp.pos.lon, 1.006);
+    const m = new THREE.MeshBasicMaterial({
+      color: rp.inRoute ? 0xffffff : 0x555555,
+      transparent: !rp.inRoute,
+      opacity: rp.inRoute ? 1 : 0.3,
+      depthTest: false
+    });
+    const b = new THREE.Mesh(new THREE.SphereGeometry(beadR, 5, 5), m);
+    b.position.copy(v);
+    b.renderOrder = 999;
+    routeGroup.add(b);
+  });
+
+  // Cyan glow ring around main route beads every 4th
+  pts.filter((_,i) => i % 4 === 0 && _.inRoute).forEach(rp => {
+    const v = geo2v3(rp.pos.lat, rp.pos.lon, 1.006);
+    const g = new THREE.Mesh(
+      new THREE.SphereGeometry(0.009, 5, 5),
+      new THREE.MeshBasicMaterial({color:0x5bc8f5, transparent:true, opacity:0.22, depthTest:false})
+    );
+    g.position.copy(v);
+    g.renderOrder = 998;
+    routeGroup.add(g);
+  });
+
+  // Airport marker dots — stored so we can show/hide based on camera facing
+  const apDots = [
+    {lat: S.dep.lat, lon: S.dep.lon, col: 0xf5c842, key: 'dep'},
+    {lat: S.dest.lat, lon: S.dest.lon, col: 0x5bc8f5, key: 'dest'}
+  ].map(({lat, lon, col, key}) => {
+    const v = geo2v3(lat, lon, 1.010);
+    const dot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.020, 16, 16),
+      new THREE.MeshBasicMaterial({color: col, depthTest: false})
+    );
+    dot.position.copy(v);
+    dot.renderOrder = 1000;
+    dot.userData.lat = lat;
+    dot.userData.lon = lon;
+    routeGroup.add(dot);
+    return dot;
+  });
+  S.apDots = apDots;
+
+  // Aircraft at departure to start
+  const startV = geo2v3(S.dep.lat, S.dep.lon, 1.025);
+  acMesh.position.copy(startV);
+  acRing.position.copy(startV);
+  acRing.lookAt(new THREE.Vector3(0,0,0));
+  acMesh.visible = true;
+  acRing.visible = true;
+}
+
+// ═══════════════════════════════════════════
+// CSS LABEL POSITIONING
+// Project 3D point to 2D screen — use DOM labels for crisp text
+// ═══════════════════════════════════════════
+const lblDep = document.getElementById('lbl-dep');
+const lblDest = document.getElementById('lbl-dest');
+
+function updateLabels(){
+  if(!S.dep || !S.dest || !S.result){
+    lblDep.style.display = 'none';
+    lblDest.style.display = 'none';
+    return;
+  }
+  projectLabel(lblDep, S.dep.lat, S.dep.lon);
+  projectLabel(lblDest, S.dest.lat, S.dest.lon);
+
+  // Also hide/show the 3D airport dot meshes based on camera facing
+  if(S.apDots && S.apDots.length >= 2){
+    const airports = [
+      {lat: S.dep.lat, lon: S.dep.lon},
+      {lat: S.dest.lat, lon: S.dest.lon}
+    ];
+    airports.forEach((ap, i) => {
+      const localPos = geo2v3(ap.lat, ap.lon, 1.010);
+      const worldPos = localPos.clone().applyEuler(earth.rotation);
+      const facingCamera = worldPos.clone().normalize().dot(camera.position.clone().normalize());
+      S.apDots[i].visible = facingCamera > 0.10;
+    });
+  }
+}
+
+function projectLabel(el, lat, lon){
+  // Get 3D position in earth's local space
+  const localPos = geo2v3(lat, lon, 1.035);
+  // Transform to world space (apply earth rotation)
+  const worldPos = localPos.clone().applyEuler(earth.rotation);
+
+  // Check if airport faces the camera
+  // facingCamera = dot product of airport direction and camera direction
+  // 1.0 = airport directly facing camera, 0 = at limb, negative = behind globe
+  const facingCamera = worldPos.clone().normalize().dot(camera.position.clone().normalize());
+
+  // Hide cleanly when airport is near or past the limb
+  if(facingCamera < 0.15){
+    el.style.display = 'none';
+    return;
+  }
+  // Fade in smoothly as airport comes into view over the horizon
+  el.style.opacity = Math.min(1, (facingCamera - 0.15) / 0.20);
+  // Project to screen
+  const proj = worldPos.clone().project(camera);
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  const x = (proj.x * 0.5 + 0.5) * w;
+  const y = (-proj.y * 0.5 + 0.5) * h;
+  el.style.display = 'block';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+}
+
+// ═══════════════════════════════════════════
+// GLOBE ORIENTATION HELPERS
+// ═══════════════════════════════════════════
+function orientGlobeToRoute(){
+  if(!S.dep || !S.dest || !S.result) return;
+  const mid = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.5);
+
+  // Mathematically correct orientation:
+  // We want the route midpoint to face the camera (max z after rotation)
+  // Step 1: Choose rotX to bring the midpoint toward camera
+  // High-latitude routes need steep tilt to show the polar arc
+  const latAbs = Math.abs(mid.lat);
+  // For polar routes (lat > 60), tilt steeply. For equatorial, tilt less.
+  const rotX = Math.min(1.2, latAbs * DEG * 0.82) * Math.sign(mid.lat);
+  S.rotX = rotX;
+
+  // Step 2: Find rotY that maximizes z for the midpoint after rotX is applied
+  // Get midpoint local position
+  const mp = geo2v3(mid.lat, mid.lon, 1);
+  // Apply rotX
+  const zAfterX = mp.y * Math.sin(rotX) + mp.z * Math.cos(rotX);
+  const xAfterX = mp.x;
+  // rotY that centers this: atan2(-x, z)
+  S.rotY = Math.atan2(-xAfterX, zAfterX);
+
+  earth.rotation.set(S.rotX, S.rotY, 0);
+
+  // Auto-zoom camera based on route angular size
+  // Compute great circle angle between dep and dest
+  function gcAngle(la1,lo1,la2,lo2){
+    const d=Math.PI/180;
+    return Math.acos(Math.max(-1,Math.min(1,
+      Math.sin(la1*d)*Math.sin(la2*d)+
+      Math.cos(la1*d)*Math.cos(la2*d)*Math.cos((lo2-lo1)*d)
+    )))*180/Math.PI;
+  }
+  const routeAngle = gcAngle(S.dep.lat,S.dep.lon,S.dest.lat,S.dest.lon);
+  // For a 180-degree route, camera at 2.8 (full globe view)
+  // For a 20-degree route, camera zooms in to ~1.5
+  // Linear interpolation: camDist = 1.4 + (routeAngle/180)*1.4
+  // Clamped between 1.45 (very short) and 2.8 (global)
+  const targetDist = Math.max(1.9, Math.min(2.8, 1.7 + (routeAngle/180)*1.1));
+  camera.position.set(0, 0, targetDist);
+  S.camDist = targetDist;
+  camera.updateProjectionMatrix();
+
+  // Store Act 1 orientation (polar view)
+  S.act1RotX = S.rotX;
+  S.act1RotY = S.rotY;
+
+  // Compute Act 2 orientation: centered on f=0.75 descent point
+  const p75 = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.75);
+  const mp2 = geo2v3(p75.lat, p75.lon, 1);
+  // Use moderate rotX (41 degrees) to show descent path and VHHH
+  const rx2 = Math.min(1.1, Math.abs(p75.lat) * DEG * 0.72) * Math.sign(p75.lat);
+  const zAX2 = mp2.y * Math.sin(rx2) + mp2.z * Math.cos(rx2);
+  const xAX2 = mp2.x;
+  const ry2 = Math.atan2(-xAX2, zAX2);
+  S.act2RotX = rx2;
+  S.act2RotY = ry2;
+}
+
+// ═══════════════════════════════════════════
+// ANIMATION — Earth rotates, sun moves, aircraft moves
+// ═══════════════════════════════════════════
+const ANIM_MS = 90000;
+let animStart = null;
+
+function startAnim(){
+  if(!S.result) return;
+  stopAnim();
+  S.animating = true;
+  animStart = null;
+  document.getElementById('btn-animate').textContent = '⏹  Stop';
+  document.getElementById('btn-animate').classList.add('playing');
+  document.getElementById('hud').style.display = 'block';
+  document.getElementById('progress-wrap').style.display = 'block';
+
+  const track = S.result.track;
+  // Keep the Calculate orientation as starting point
+  S.act1RotX = S.rotX;
+  S.act1RotY = S.rotY;
+
+  // Compute arrival orientation directly — no searching
+  // rotX stays IDENTICAL to Calculate view (validated: same polar tilt looks right)
+  // rotY: find the SMALLEST positive delta that brings destination to visible left side
+  // "smallest positive" = rotate eastward just enough, no more
+
+  const destLocal = geo2v3(S.dest.lat, S.dest.lon, 1);
+  const depLocal  = geo2v3(S.dep.lat,  S.dep.lon,  1);
+  const rx = S.rotX;
+
+  function wZ(local, ry){
+    const zA = local.y*Math.sin(rx) + local.z*Math.cos(rx);
+    return -local.x*Math.sin(ry) + zA*Math.cos(ry);
+  }
+  function wX(local, ry){
+    const zA = local.y*Math.sin(rx) + local.z*Math.cos(rx);
+    return local.x*Math.cos(ry) + zA*Math.sin(ry);
+  }
+
+  // Target arrival: VHHH clearly visible center-left, KBGR visible upper-right
+  // Find the rotY where VHHH is at x~-0.20 (left-center) and still visible
+  // This is roughly +52 degrees (0.9 rad) eastward from Calculate view
+  // Scan eastward and pick the rotation where VHHH x is closest to -0.20
+  let arrivalRotY = S.rotY + 0.9; // default ~52 degrees
+  let bestDist = 999;
+  for(let delta = 0.3; delta <= 2.0; delta += 0.01){
+    const tryY = S.rotY + delta;
+    const dz = wZ(destLocal, tryY);
+    const dx = wX(destLocal, tryY);
+    const oz = wZ(depLocal, tryY);
+    // Want VHHH visible (z>0.2), at left-center (x near -0.20)
+    // and departure still visible (z>0)
+    if(dz > 0.2 && oz > 0.0){
+      const dist = Math.abs(dx - (-0.20));
+      if(dist < bestDist){ bestDist = dist; arrivalRotY = tryY; }
+    }
+  }
+
+  S.arrivalRotX = rx;
+  S.arrivalRotY = arrivalRotY;
+
+  function step(ts){
+    if(!S.animating) return;
+    if(!animStart) animStart = ts;
+    const raw = Math.min((ts - animStart) / ANIM_MS, 1);
+    const p = raw < 0.5 ? 2*raw*raw : 1 - Math.pow(-2*raw+2,2)/2;
+
+    // Smooth interpolation between track points — sweep second hand not tick
+    const rawIdx = p * (track.length - 1);
+    const idx = Math.min(Math.floor(rawIdx), track.length - 2);
+    const frac = rawIdx - idx;
+    const pt0 = track[idx];
+    const pt1 = track[Math.min(idx + 1, track.length - 1)];
+    // Interpolate lat/lon/jd smoothly between the two surrounding minutes
+    const pt = {
+      m: pt0.m + frac * (pt1.m - pt0.m),
+      lat: pt0.lat + frac * (pt1.lat - pt0.lat),
+      lon: pt0.lon + frac * (pt1.lon - pt0.lon),
+      el: pt0.el + frac * (pt1.el - pt0.el),
+      isN: pt0.isN,
+      jd: pt0.jd + frac * (pt1.jd - pt0.jd)
+    };
+
+    // ── MOVE SUN (terminator sweeps in real time) ──
+    const sd = sunWorldDir(pt.jd);
+    sunLight.position.copy(sd.clone().multiplyScalar(50));
+
+    // ── GENTLE FOLLOW ──
+    // Phase 1 (p=0.00 to p=0.30): Globe holds perfectly still — polar arc view
+    //   Watch the terminator chase the aircraft northbound. Pure cinema.
+    // Phase 2 (p=0.30 to p=1.00): Constant-rate Y-only rotation
+    //   rotX stays locked — polar tilt maintained throughout
+    //   Both airports stay in view, just like the Calculate view
+    //   Constant speed — no acceleration near destination
+
+    // ── CAMERA CRANE MOVE ──
+    // The camera starts looking DOWN at the pole (high rotX = steep tilt)
+    // and gradually swings to look MORE HORIZONTALLY at the destination.
+    // Both rotX AND rotY change — like a camera crane swinging from
+    // overhead down to eye level as the flight progresses.
+    //
+    // Phase 1 (p=0 to 0.25): Hold polar overhead view — terminator chases plane
+    // Phase 2 (p=0.25 to 1.0): Smooth crane move from overhead to arrival view
+
+    // ── CHASE CAMERA — camera flies in formation with aircraft ──
+    // Earth stays completely fixed (Calculate orientation never changes)
+    // Camera moves around Earth to stay behind and above the aircraft
+    // Like a chase plane flying 500nm behind at 60,000 feet
+
+    // Get aircraft position in earth's LOCAL coordinate space
+    const acLocal = geo2v3(pt.lat, pt.lon, 1.0);
+
+    // Transform to WORLD space (apply earth's fixed rotation)
+    const acWorld = acLocal.clone().applyEuler(earth.rotation);
+
+    // Camera sits behind and above the aircraft
+    // "Behind" = slightly back along the route direction
+    // "Above" = offset outward from Earth center
+    // Simple approach: camera at aircraft world position * viewing distance
+    // with a slight upward bias to see the route ahead
+
+    // Look-ahead: where is the aircraft going? Sample slightly ahead
+    const aheadIdx = Math.min(idx + Math.floor(track.length * 0.05), track.length-1);
+    const aheadPt = track[aheadIdx];
+    const aheadLocal = geo2v3(aheadPt.lat, aheadPt.lon, 1.0);
+    const aheadWorld = aheadLocal.clone().applyEuler(earth.rotation);
+
+    // Camera direction: behind aircraft, biased toward looking ahead
+    // Position camera at: aircraft position * distance, slightly offset
+    const camDir = acWorld.clone().normalize();
+
+    // Blend: 80% current position, 20% look-ahead for smooth anticipation
+    const blendedDir = new THREE.Vector3()
+      .addScaledVector(camDir, 0.8)
+      .addScaledVector(aheadWorld.normalize(), 0.2)
+      .normalize();
+
+    // Place camera at viewing distance in that direction
+    const viewDist = S.camDist || 2.6;
+    camera.position.copy(blendedDir.multiplyScalar(viewDist));
+    camera.lookAt(0, 0, 0);
+
+    // Earth stays fixed — do NOT change earth.rotation
+
+    // ── MOVE AIRCRAFT along route (child of earth, moves with it) ──
+    const aPos = geo2v3(pt.lat, pt.lon, 1.025);
+    acMesh.position.copy(aPos);
+    acRing.position.copy(aPos);
+    // Orient ring to face outward from surface
+    const norm = aPos.clone().normalize();
+    acRing.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), norm);
+
+    // Change aircraft color at the terminator — magenta (day) to cyan (night)
+    const acColor = pt.isN ? 0x00ffff : 0xff00cc;
+    acMesh.material.color.setHex(acColor);
+    acRing.material.color.setHex(acColor);
+
+    // Running totals
+    let ni=0,da=0;
+    for(let i=0;i<idx;i++){track[i].isN?ni++:da++;}
+
+    // HUD
+    const uh=Math.floor(((pt.jd+0.5)%1)*24),um=Math.floor((((pt.jd+0.5)%1)*24%1)*60);
+    // Update CSS labels during animation
+    updateLabels();
+    document.getElementById('hud-time').textContent =
+      `${String(uh).padStart(2,'0')}:${String(um).padStart(2,'0')} UTC  ·  MIN ${String(Math.floor(pt.m)).padStart(3,'0')} / ${track.length-1}`;
+    document.getElementById('hud-stats').textContent = `NIGHT ${fmtHM(ni)}  ·  DAY ${fmtHM(da)}`;
+    document.getElementById('progress-fill').style.width = (raw*100)+'%';
+    document.getElementById('progress-label').textContent = `${S.dep.icao} ──── ${S.dest.icao}`;
+    document.getElementById('status-time').textContent = `${String(uh).padStart(2,'0')}:${String(um).padStart(2,'0')}Z`;
+    document.getElementById('r-night-dec').textContent = fmtDec(ni);
+    document.getElementById('r-day-dec').textContent = fmtDec(da);
+
+    if(raw < 1){
+      S.animFrame = requestAnimationFrame(step);
+    } else {
+      S.animating = false;
+      document.getElementById('btn-animate').textContent = '↺  Replay';
+      document.getElementById('btn-animate').classList.remove('playing');
+      document.getElementById('r-night-dec').textContent = fmtDec(S.result.night);
+      document.getElementById('r-day-dec').textContent = fmtDec(S.result.day);
+      // Return camera to Calculate view position
+      camera.position.set(0, 0, S.camDist || 2.6);
+      camera.lookAt(0, 0, 0);
+      setTimeout(()=>{
+        document.getElementById('progress-wrap').style.display='none';
+        document.getElementById('hud').style.display='none';
+      }, 4000);
+    }
+  }
+  S.animFrame = requestAnimationFrame(step);
+}
+
+function stopAnim(){
+  S.animating = false;
+  if(S.animFrame){cancelAnimationFrame(S.animFrame);S.animFrame=null;}
+  document.getElementById('btn-animate').textContent = '↺  Replay';
+  document.getElementById('btn-animate').classList.remove('playing');
+}
+
+// ═══════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════
+let idleT = 0;
+
+function renderLoop(){
+  requestAnimationFrame(renderLoop);
+
+  // Idle: slow spin, real-time sun
+  if(!S.result && !S.animating && !S.dragging){
+    idleT += 0.002;
+    S.rotY = idleT;
+    S.rotX = 0.15;
+    earth.rotation.set(S.rotX, S.rotY, 0);
+    const now = new Date();
+    const jdNow = julianDay(now.getUTCFullYear(), now.getUTCMonth()+1, now.getUTCDate(),
+      now.getUTCHours()+now.getUTCMinutes()/60);
+    const sd = sunWorldDir(jdNow);
+    sunLight.position.copy(sd.clone().multiplyScalar(50));
+    const uh=now.getUTCHours(),um=now.getUTCMinutes();
+    document.getElementById('status-time').textContent=`UTC ${String(uh).padStart(2,'0')}:${String(um).padStart(2,'0')}Z`;
+  }
+
+  // Drag momentum
+  if(!S.dragging && !S.animating){
+    S.rotY += S.velY;
+    S.rotX += S.velX;
+    S.rotX = Math.max(-1.5, Math.min(1.5, S.rotX));
+    S.velY *= 0.90;
+    S.velX *= 0.90;
+    if(!S.animating) earth.rotation.set(S.rotX, S.rotY, 0);
+  }
+
+  // Update CSS labels every frame
+  updateLabels();
+
+  // Scale aircraft to constant visual size regardless of camera distance
+  // Target: same apparent size as at camDist=2.6 (the reference distance)
+  if(acMesh.visible){
+    const s = camera.position.length() / 2.6;
+    acMesh.scale.setScalar(s);
+    acRing.scale.setScalar(s);
+  }
+
+  renderer.render(scene, camera);
+}
+
+// ═══════════════════════════════════════════
+// DRAG — rotates Earth mesh directly
+// Route stays fixed to Earth since it's a child
+// ═══════════════════════════════════════════
+function onDown(x,y){S.dragging=true;S.dragX=x;S.dragY=y;S.velY=0;S.velX=0;}
+function onMove(x,y){
+  if(!S.dragging)return;
+  const dx=x-S.dragX,dy=y-S.dragY;
+  const dY=dx*0.005,dX=dy*0.004;
+  S.rotY+=dY;
+  S.rotX=Math.max(-1.4,Math.min(1.4,S.rotX+dX));
+  S.velY=dY;S.velX=dX;
+  S.dragX=x;S.dragY=y;
+  earth.rotation.set(S.rotX,S.rotY,0);
+}
+function onUp(){S.dragging=false;}
+
+wrap.addEventListener('mousedown',e=>onDown(e.clientX,e.clientY));
+window.addEventListener('mousemove',e=>{if(S.dragging)onMove(e.clientX,e.clientY);});
+window.addEventListener('mouseup',onUp);
+wrap.addEventListener('touchstart',e=>{e.preventDefault();onDown(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+wrap.addEventListener('touchmove',e=>{e.preventDefault();onMove(e.touches[0].clientX,e.touches[0].clientY);},{passive:false});
+wrap.addEventListener('touchend',onUp);
+wrap.addEventListener('wheel',e=>{
+  camera.position.z=Math.max(1.5,Math.min(5,camera.position.z+e.deltaY*0.003));
+  e.preventDefault();
+},{passive:false});
+
+function resize(){
+  const w=wrap.clientWidth,h=wrap.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize);resize();
+
+// ═══════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════
+function parseFT(s){s=s.trim();if(s.includes('+'))return parseInt(s)*60+parseInt(s.split('+')[1]);if(s.includes(':'))return parseInt(s)*60+parseInt(s.split(':')[1]);return parseInt(s)*60;}
+function parseDT(s){s=s.trim().replace(':','');return parseInt(s.slice(0,2)||0)+parseInt(s.slice(2,4)||0)/60;}
+function setStatus(t,b){document.getElementById('status-text').textContent=t;document.getElementById('sdot').className='sdot'+(b?' busy':'');}
+
+// ═══════════════════════════════════════════
+// AIRPORT LOOKUP
+// ═══════════════════════════════════════════
+const CACHE={};
+const FB={
+  KJFK:{lat:40.6397,lon:-73.7789,icao:'KJFK',name:'John F Kennedy Intl'},
+  KLAX:{lat:33.9425,lon:-118.4081,icao:'KLAX',name:'Los Angeles Intl'},
+  KORD:{lat:41.9742,lon:-87.9073,icao:'KORD',name:'Chicago O\'Hare Intl'},
+  KMDW:{lat:41.7868,lon:-87.7522,icao:'KMDW',name:'Chicago Midway Intl'},
+  KMCI:{lat:39.2976,lon:-94.7139,icao:'KMCI',name:'Kansas City Intl'},
+  KIND:{lat:39.7173,lon:-86.2944,icao:'KIND',name:'Indianapolis Intl'},
+  KPHX:{lat:33.4373,lon:-112.0078,icao:'KPHX',name:'Phoenix Sky Harbor Intl'},
+  KLAS:{lat:36.0840,lon:-115.1537,icao:'KLAS',name:'Las Vegas Harry Reid Intl'},
+  KMSP:{lat:44.8820,lon:-93.2218,icao:'KMSP',name:'Minneapolis-St Paul Intl'},
+  KDTW:{lat:42.2124,lon:-83.3534,icao:'KDTW',name:'Detroit Metro Wayne County'},
+  KBWI:{lat:39.1754,lon:-76.6683,icao:'KBWI',name:'Baltimore Washington Intl'},
+  KPHL:{lat:39.8719,lon:-75.2411,icao:'KPHL',name:'Philadelphia Intl'},
+  KCLT:{lat:35.2140,lon:-80.9431,icao:'KCLT',name:'Charlotte Douglas Intl'},
+  KSLC:{lat:40.7884,lon:-111.9778,icao:'KSLC',name:'Salt Lake City Intl'},
+  KSAN:{lat:32.7336,lon:-117.1897,icao:'KSAN',name:'San Diego Intl'},
+  KPDX:{lat:45.5887,lon:-122.5975,icao:'KPDX',name:'Portland Intl'},
+  KTPA:{lat:27.9755,lon:-82.5332,icao:'KTPA',name:'Tampa Intl'},
+  KMCO:{lat:28.4294,lon:-81.3089,icao:'KMCO',name:'Orlando Intl'},
+  KFLL:{lat:26.0726,lon:-80.1527,icao:'KFLL',name:'Fort Lauderdale Hollywood Intl'},
+  KOAK:{lat:37.7213,lon:-122.2208,icao:'KOAK',name:'Oakland Intl'},
+  KSJC:{lat:37.3626,lon:-121.9290,icao:'KSJC',name:'San Jose Intl'},
+  KAUS:{lat:30.1975,lon:-97.6664,icao:'KAUS',name:'Austin-Bergstrom Intl'},
+  KHOU:{lat:29.6454,lon:-95.2789,icao:'KHOU',name:'Houston Hobby'},
+  KDAL:{lat:32.8471,lon:-96.8517,icao:'KDAL',name:'Dallas Love Field'},
+  KATL:{lat:33.6367,lon:-84.4281,icao:'KATL',name:'Hartsfield-Jackson Atlanta Intl'},
+  KBGR:{lat:44.8074,lon:-68.8281,icao:'KBGR',name:'Bangor Intl'},
+  KSFO:{lat:37.6189,lon:-122.375,icao:'KSFO',name:'San Francisco Intl'},
+  KMIA:{lat:25.7959,lon:-80.287,icao:'KMIA',name:'Miami Intl'},
+  KIAH:{lat:29.9902,lon:-95.3368,icao:'KIAH',name:'Houston Intercontinental'},
+  KEWR:{lat:40.6895,lon:-74.1745,icao:'KEWR',name:'Newark Liberty Intl'},
+  KBOS:{lat:42.3643,lon:-71.0052,icao:'KBOS',name:'Boston Logan Intl'},
+  KPWK:{lat:42.1142,lon:-87.9015,icao:'KPWK',name:'Chicago Executive'},
+  KDFW:{lat:32.8998,lon:-97.0403,icao:'KDFW',name:'Dallas Fort Worth Intl'},
+  KDEN:{lat:39.8561,lon:-104.6737,icao:'KDEN',name:'Denver Intl'},
+  KSEA:{lat:47.4502,lon:-122.3088,icao:'KSEA',name:'Seattle-Tacoma Intl'},
+  EGLL:{lat:51.4775,lon:-0.4614,icao:'EGLL',name:'London Heathrow'},
+  EDDF:{lat:50.0264,lon:8.5431,icao:'EDDF',name:'Frankfurt am Main'},
+  EDDM:{lat:48.3537,lon:11.786,icao:'EDDM',name:'Munich'},
+  LFPG:{lat:49.0097,lon:2.5479,icao:'LFPG',name:'Paris Charles de Gaulle'},
+  EHAM:{lat:52.3086,lon:4.7639,icao:'EHAM',name:'Amsterdam Schiphol'},
+  LEMD:{lat:40.4719,lon:-3.5626,icao:'LEMD',name:'Madrid Barajas'},
+  LIRF:{lat:41.8003,lon:12.2389,icao:'LIRF',name:'Rome Fiumicino'},
+  LSZH:{lat:47.4647,lon:8.5492,icao:'LSZH',name:'Zurich'},
+  UUEE:{lat:55.9728,lon:37.4147,icao:'UUEE',name:'Moscow Sheremetyevo'},
+  VHHH:{lat:22.3089,lon:113.9146,icao:'VHHH',name:'Hong Kong Intl'},
+  WSSS:{lat:1.3502,lon:103.9944,icao:'WSSS',name:'Singapore Changi'},
+  RJTT:{lat:35.5494,lon:139.7798,icao:'RJTT',name:'Tokyo Haneda'},
+  RJAA:{lat:35.7653,lon:140.3865,icao:'RJAA',name:'Tokyo Narita'},
+  ZBAA:{lat:40.0801,lon:116.5846,icao:'ZBAA',name:'Beijing Capital Intl'},
+  ZSPD:{lat:31.1434,lon:121.8052,icao:'ZSPD',name:'Shanghai Pudong Intl'},
+  OMDB:{lat:25.2528,lon:55.3644,icao:'OMDB',name:'Dubai Intl'},
+  OERK:{lat:24.9578,lon:46.6989,icao:'OERK',name:'King Khalid Intl Riyadh'},
+  OEJN:{lat:21.6796,lon:39.1565,icao:'OEJN',name:'King Abdulaziz Intl Jeddah'},
+  FAOR:{lat:-26.1392,lon:28.246,icao:'FAOR',name:'O.R. Tambo Intl Johannesburg'},
+  HECA:{lat:30.1219,lon:31.4056,icao:'HECA',name:'Cairo Intl'},
+  DNMM:{lat:6.5774,lon:3.3211,icao:'DNMM',name:'Murtala Muhammed Intl Lagos'},
+  YSSY:{lat:-33.9461,lon:151.1772,icao:'YSSY',name:'Sydney Kingsford Smith'},
+  YMML:{lat:-37.6733,lon:144.843,icao:'YMML',name:'Melbourne Airport'},
+  PANC:{lat:61.1744,lon:-149.9961,icao:'PANC',name:'Ted Stevens Anchorage Intl'},
+  PAFA:{lat:64.8151,lon:-147.8561,icao:'PAFA',name:'Fairbanks Intl'},
+  CYYZ:{lat:43.6772,lon:-79.6306,icao:'CYYZ',name:'Toronto Pearson Intl'},
+  CYVR:{lat:49.1967,lon:-123.1815,icao:'CYVR',name:'Vancouver Intl'},
+  SBGR:{lat:-23.4356,lon:-46.4731,icao:'SBGR',name:'São Paulo Guarulhos Intl'},
+  SAEZ:{lat:-34.8222,lon:-58.5358,icao:'SAEZ',name:'Buenos Aires Ezeiza Intl'},
+  VIDP:{lat:28.5665,lon:77.1031,icao:'VIDP',name:'Indira Gandhi Intl Delhi'},
+  VABB:{lat:19.0887,lon:72.8679,icao:'VABB',name:'Mumbai Intl'},
+  VTBS:{lat:13.6811,lon:100.7472,icao:'VTBS',name:'Bangkok Suvarnabhumi'},
+  RKSI:{lat:37.4691,lon:126.451,icao:'RKSI',name:'Seoul Incheon Intl'},
+  NZAA:{lat:-37.0082,lon:174.7921,icao:'NZAA',name:'Auckland Intl'},
+};
+
+function parseCSV(line){const r=[];let c='',q=false;for(const ch of line){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c);c='';}else c+=ch;}r.push(c);return r;}
+let dbFetched=false,dbFetching=false;
+async function fetchDB(){
+  if(dbFetched||dbFetching)return;dbFetching=true;
+  try{
+    const r=await fetch('https://davidmegginson.github.io/ourairports-data/airports.csv');
+    if(!r.ok)throw new Error();
+    const txt=await r.text(),lines=txt.split('\n'),h=lines[0].split(',');
+    const iI=h.indexOf('ident'),laI=h.indexOf('latitude_deg'),loI=h.indexOf('longitude_deg'),nI=h.indexOf('name');
+    for(let i=1;i<lines.length;i++){
+      const c=parseCSV(lines[i]);if(!c[iI])continue;
+      const id=c[iI].replace(/"/g,'').trim(),la=parseFloat(c[laI]),lo=parseFloat(c[loI]),nm=(c[nI]||'').replace(/"/g,'');
+      if(!isNaN(la)&&!isNaN(lo))CACHE[id]={lat:la,lon:lo,icao:id,name:nm};
+    }
+    dbFetched=true;
+  }catch(e){dbFetched=true;}
+  dbFetching=false;
+}
+async function lookupAP(code){
+  const c=code.toUpperCase().trim();
+  if(CACHE[c])return CACHE[c];if(FB[c])return FB[c];
+  if(!dbFetched)await fetchDB();
+  return CACHE[c]||null;
+}
+async function handleAP(inp,stat,key){
+  const code=inp.value.toUpperCase().trim();inp.value=code;
+  if(code.length<3){stat.textContent='';stat.className='ap-status';S[key]=null;return;}
+  stat.textContent='LOOKING UP...';stat.className='ap-status loading';
+  const found=await lookupAP(code);
+  if(found){
+    S[key]=found;
+    stat.textContent=`✓ ${found.name||code}`;
+    stat.className='ap-status ok';
+    inp.classList.remove('error');
+    // Update label text
+    if(key==='dep'){lblDep.textContent=code;}
+    if(key==='dest'){lblDest.textContent=code;}
+  }else{
+    S[key]=null;stat.textContent='✗ NOT FOUND';stat.className='ap-status err';inp.classList.add('error');
+  }
+}
+
+document.getElementById('dep').addEventListener('blur',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
+document.getElementById('dest').addEventListener('blur',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
+
+document.querySelectorAll('.mode-btn').forEach(b=>{
+  b.addEventListener('click',function(){
+    document.querySelectorAll('.mode-btn').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');S.threshold=parseFloat(this.dataset.thresh);
+  });
+});
+
+// ── CALCULATE ──
+document.getElementById('btn-calc').addEventListener('click',async function(){
+  if(!S.dep){alert('Enter a valid departure airport ICAO code.');return;}
+  if(!S.dest){alert('Enter a valid destination airport ICAO code.');return;}
+  const dv=document.getElementById('dep-date').value;
+  if(!dv){alert('Enter a departure date.');return;}
+  const[yr,mo,dy]=dv.split('-').map(Number);
+  const dH=parseDT(document.getElementById('dep-time').value);
+  const fM=parseFT(document.getElementById('flt-time').value);
+  if(!fM||fM<=0){alert('Enter a valid flight time, e.g. 07+30');return;}
+  this.disabled=true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('loading-text').textContent='COMPUTING SOLAR POSITIONS...';
+  setStatus('CALCULATING...',true);
+  await new Promise(r=>setTimeout(r,60));
+  try{
+    const res=calcFlight(S.dep.lat,S.dep.lon,S.dest.lat,S.dest.lon,yr,mo,dy,dH,fM,S.threshold);
+    S.result=res;
+
+    // Set sun at departure time
+    const sd=sunWorldDir(res.jd0);
+    sunLight.position.copy(sd.clone().multiplyScalar(50));
+
+    // Build route geometry
+    buildRoute();
+
+    // Orient globe to show route centered
+    orientGlobeToRoute();
+
+    // Show results panel
+    document.getElementById('r-night-dec').textContent=fmtDec(res.night);
+    document.getElementById('r-day-dec').textContent=fmtDec(res.day);
+    document.getElementById('r-dist').textContent=res.distNM.toLocaleString();
+    // Auto-calculate groundspeed: distance / flight time
+    const fMins = parseFT(document.getElementById('flt-time').value);
+    if(fMins > 0 && res.distNM){
+      const gs = Math.round(res.distNM / (fMins / 60));
+      document.getElementById('gnd-spd').value = gs;
+    }
+    const lb=document.getElementById('r-landing');
+    lb.textContent=res.nightLanding?'YES — LOG IT':'NO';
+    lb.className='badge '+(res.nightLanding?'yes':'no');
+    document.getElementById('dep-set-lbl').textContent=`${S.dep.icao} Sunset +1hr`;
+    document.getElementById('dep-rise-lbl').textContent=`${S.dep.icao} Sunrise −1hr`;
+    document.getElementById('dest-set-lbl').textContent=`${S.dest.icao} Sunset +1hr`;
+    document.getElementById('dest-rise-lbl').textContent=`${S.dest.icao} Sunrise −1hr`;
+    document.getElementById('dep-sunset').textContent=res.dSunset;
+    document.getElementById('dep-sunrise').textContent=res.dSunrise;
+    document.getElementById('dest-sunset').textContent=res.tSunset;
+    document.getElementById('dest-sunrise').textContent=res.tSunrise;
+    document.getElementById('results').style.display='block';
+    document.getElementById('btn-animate').textContent='▶  Animate Flight';
+    document.getElementById('btn-animate').classList.remove('playing');
+    setStatus(`${S.dep.icao} → ${S.dest.icao} · READY TO ANIMATE`,false);
+  }catch(e){
+    console.error(e);alert('Calculation error: '+e.message);setStatus('ERROR',false);
+  }
+  this.disabled=false;
+  document.getElementById('loading').classList.remove('show');
+});
+
+document.getElementById('btn-animate').addEventListener('click',function(){
+  if(S.animating)stopAnim();else startAnim();
+});
+
+// ── INIT ──
+document.getElementById('loading').classList.add('show');
+loadTexture();
+renderLoop();
+setTimeout(fetchDB, 800);
+
+// Default airports
+document.getElementById('dep').value='KBGR';
+document.getElementById('dest').value='VHHH';
+setTimeout(async()=>{
+  await handleAP(document.getElementById('dep'),document.getElementById('dep-status'),'dep');
+  await handleAP(document.getElementById('dest'),document.getElementById('dest-status'),'dest');
+},700);
+</script>
+</body>
+</html>

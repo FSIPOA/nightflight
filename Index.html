@@ -61,6 +61,7 @@ input.error{border-color:#e74c3c}
 #btn-animate{background:#071a35;border:1px solid #1a4a6e;border-radius:7px;color:#3a8ab0;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;padding:9px;cursor:pointer;width:100%;margin-top:4px;transition:all .2s}
 #btn-animate:hover{background:#0d3a6e;border-color:#1e6abf;color:#5bc8f5}
 #btn-animate.playing{color:#f5a623;border-color:#f5a623}
+#animate-wrap{display:none;position:sticky;bottom:0;background:#080c18;padding:8px 0 4px;border-top:1px solid #1a3a5f;margin-top:auto}
 
 /* GLOBE */
 #globe-wrap{position:relative;overflow:hidden;background:#000508;cursor:grab}
@@ -214,6 +215,9 @@ input.error{border-color:#e74c3c}
       <div class="solar-row"><span class="sl" id="dest-set-lbl">DEST Sunset +1hr</span><span class="sv" id="dest-sunset">—</span></div>
       <div class="solar-row"><span class="sl" id="dest-rise-lbl">DEST Sunrise −1hr</span><span class="sv" id="dest-sunrise">—</span></div>
     </div>
+  </div>
+  <!-- Animate button outside results — sticky at panel bottom, always visible -->
+  <div id="animate-wrap">
     <button id="btn-animate">&#9654;&nbsp; Animate Flight</button>
   </div>
 </div>
@@ -1492,6 +1496,7 @@ document.getElementById('btn-calc').addEventListener('click',async function(){
     document.getElementById('dest-sunset').textContent=res.tSunset;
     document.getElementById('dest-sunrise').textContent=res.tSunrise;
     document.getElementById('results').style.display='block';
+    document.getElementById('animate-wrap').style.display='block';
     document.getElementById('btn-animate').textContent='▶  Animate Flight';
     document.getElementById('btn-animate').classList.remove('playing');
     setStatus(`${S.dep.icao} → ${S.dest.icao} · READY TO ANIMATE`,false);

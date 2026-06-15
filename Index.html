@@ -34,7 +34,8 @@ main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relat
 .field{margin-bottom:8px}
 .field label{display:block;font-size:14px;letter-spacing:2px;color:#ffffff;text-transform:uppercase;margin-bottom:4px;font-weight:700}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-input[type=text],input[type=date]{width:100%;background:#0b1520;border:1px solid #1a3a5f;border-radius:5px;padding:10px 14px;color:#7eb8e0;font-family:'Share Tech Mono',monospace;font-size:30px;letter-spacing:3px;outline:none;transition:border-color .2s;text-align:center}
+input[type=text],input[type=date]{width:100%;background:#0b1520;border:1px solid #1a3a5f;border-radius:5px;padding:10px 14px;color:#7eb8e0;font-family:'Share Tech Mono',monospace;font-size:30px;letter-spacing:3px;outline:none;transition:border-color .2s;text-align:center;height:64px;-webkit-appearance:none;appearance:none}
+input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5) sepia(1) saturate(2) hue-rotate(180deg);cursor:pointer;width:24px;height:24px}
 input[type=text]:focus,input[type=date]:focus{border-color:#2a6fa8;color:#c8e8ff}
 input::placeholder{color:#1a3a5f}
 input.error{border-color:#e74c3c}
@@ -188,7 +189,7 @@ input.error{border-color:#e74c3c}
   </div>
   <div class="section-label">Departure (UTC)</div>
   <div class="field-row">
-    <div class="field"><label>Date (YYYYMMDD)</label><input type="text" id="dep-date" placeholder="20261221" value="20261221" maxlength="8" inputmode="numeric" autocomplete="off"/></div>
+    <div class="field"><label>Date</label><input type="date" id="dep-date" value="2026-12-21"/></div>
     <div class="field"><label>Time (HHMM)</label><input type="text" id="dep-time" placeholder="0000" value="1200" maxlength="4" inputmode="numeric" autocomplete="off"/></div>
   </div>
   <div class="section-label">Flight Time</div>
@@ -273,16 +274,7 @@ input.error{border-color:#e74c3c}
   el.addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
 });
 
-// Date field — select-all on focus, format on blur as YYYY/MM/DD for readability
-document.getElementById('dep-date').addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
-function formatDepDate(el){
-  const d = el.value.replace(/[^0-9]/g,'');
-  if(d.length === 8){
-    el.value = d.slice(0,4) + '/' + d.slice(4,6) + '/' + d.slice(6,8);
-  }
-}
-document.getElementById('dep-date').addEventListener('blur', function(){ formatDepDate(this); });
-document.getElementById('dep-date').addEventListener('change', function(){ formatDepDate(this); });
+
 
 // ═══════════════════════════════════════════
 // FIELD FORMATTING — format on blur (when user leaves field)
@@ -305,9 +297,8 @@ document.getElementById('dep-time').addEventListener('change', function(){ forma
 
 // Flight time: strip non-digits, take last 4, format as H+MM or HH+MM
 // "400" → "4+00", "1500" → "15+00", "730" → "7+30"
-document.getElementById('flt-time').addEventListener('focus', function(){
-  setTimeout(()=>this.select(), 10);
-});
+document.getElementById('flt-time').addEventListener('focus', function(){ this.value = ''; });
+document.getElementById('flt-time').addEventListener('keypress', function(e){ if(!/[0-9]/.test(e.key)) e.preventDefault(); });
 function formatFltTime(el){
   let d = el.value.replace(/[^0-9]/g,'');
   if(!d){ el.value = ''; return; }
@@ -1475,10 +1466,9 @@ document.querySelectorAll('.mode-btn').forEach(b=>{
 document.getElementById('btn-calc').addEventListener('click',async function(){
   if(!S.dep){alert('Enter a valid departure airport ICAO code.');return;}
   if(!S.dest){alert('Enter a valid destination airport ICAO code.');return;}
-  const dv=document.getElementById('dep-date').value.replace(/[^0-9]/g,'');
-  if(dv.length!==8){alert('Enter date as YYYYMMDD, e.g. 20261221');return;}
-  const yr=parseInt(dv.slice(0,4)),mo=parseInt(dv.slice(4,6)),dy=parseInt(dv.slice(6,8));
-  if(mo<1||mo>12||dy<1||dy>31){alert('Invalid date. Use YYYYMMDD format, e.g. 20261221');return;}
+  const dv=document.getElementById('dep-date').value;
+  if(!dv){alert('Enter a departure date.');return;}
+  const[yr,mo,dy]=dv.split('-').map(Number);
   const dH=parseDT(document.getElementById('dep-time').value);
   const fM=parseFT(document.getElementById('flt-time').value);
   if(!fM||fM<=0){alert('Enter a valid flight time, e.g. 07+30');return;}
@@ -1547,8 +1537,6 @@ setTimeout(fetchDB, 800);
 // Default airports
 document.getElementById('dep').value='KBGR';
 document.getElementById('dest').value='VHHH';
-// Format date field on load
-formatDepDate(document.getElementById('dep-date'));
 setTimeout(async()=>{
   await handleAP(document.getElementById('dep'),document.getElementById('dep-status'),'dep');
   await handleAP(document.getElementById('dest'),document.getElementById('dest-status'),'dest');

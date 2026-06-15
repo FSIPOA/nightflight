@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>NightFlight — Solar Flight Log Calculator</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
@@ -21,14 +21,14 @@ nav span:hover{color:#7eb8e0}
 nav span.active{color:#5bc8f5;border-bottom:1px solid #5bc8f5;padding-bottom:2px}
 
 /* MAIN — fills the 1fr row below the header */
-main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relative;height:100%}
+main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relative;height:calc(100vh - 52px)}
 
 /* LEFT PANEL — flex column, fixed height, never scrolls itself */
-#panel{background:#080c18;border-right:1px solid #1a3a5f;display:flex;flex-direction:column;overflow:hidden;z-index:5;height:100%}
+#panel{background:#080c18;border-right:1px solid #1a3a5f;display:flex;flex-direction:column;overflow:hidden;z-index:5;height:calc(100vh - 52px)}
 /* Scrollable content area inside panel */
-#panel-scroll{padding:14px 16px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#panel-scroll{padding:14px 16px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 /* Fixed footer — always visible, never scrolls away */
-#animate-wrap{display:none;padding:8px 16px 10px;border-top:1px solid #1a3a5f;background:#080c18;flex-shrink:0}
+#animate-wrap{display:none;padding:8px 16px 10px;border-top:1px solid #1a3a5f;background:#080c18;flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))}
 .section-label{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:#ffffff;text-transform:uppercase;margin:10px 0 6px;font-weight:700}
 .section-label:first-child{margin-top:0}
 .field{margin-bottom:8px}
@@ -188,7 +188,7 @@ input.error{border-color:#e74c3c}
   </div>
   <div class="section-label">Departure (UTC)</div>
   <div class="field-row">
-    <div class="field"><label>Date</label><input type="date" id="dep-date" value="2026-12-21"/></div>
+    <div class="field"><label>Date (YYYYMMDD)</label><input type="text" id="dep-date" placeholder="20261221" value="20261221" maxlength="8" inputmode="numeric" autocomplete="off"/></div>
     <div class="field"><label>Time (HHMM)</label><input type="text" id="dep-time" placeholder="0000" value="1200" maxlength="4" inputmode="numeric" autocomplete="off"/></div>
   </div>
   <div class="section-label">Flight Time</div>
@@ -254,19 +254,35 @@ input.error{border-color:#e74c3c}
 
 // ═══════════════════════════════════════════
 // FIELD AUTO-CLEAR ON FOCUS
+// Airport fields: clear content on focus so user can just type the new code.
+// Time/speed fields: select-all on focus.
+// iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
-// Numeric-only enforcement on time fields
-['dep','dest','gnd-spd'].forEach(id => {
+
+// Airport fields — clear on focus (desktop + iOS)
+['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
-  // Desktop
-  el.addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
-  // iOS Safari — touchstart then select after keyboard appears
-  el.addEventListener('touchstart', function(){
-    const self = this;
-    setTimeout(()=>{ self.focus(); self.select(); }, 100);
-  }, {passive:true});
+  el.addEventListener('focus', function(){ this.value = ''; });
 });
+
+// Numeric fields — select-all on focus
+['gnd-spd'].forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
+});
+
+// Date field — select-all on focus, format on blur as YYYY/MM/DD for readability
+document.getElementById('dep-date').addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
+function formatDepDate(el){
+  const d = el.value.replace(/[^0-9]/g,'');
+  if(d.length === 8){
+    el.value = d.slice(0,4) + '/' + d.slice(4,6) + '/' + d.slice(6,8);
+  }
+}
+document.getElementById('dep-date').addEventListener('blur', function(){ formatDepDate(this); });
+document.getElementById('dep-date').addEventListener('change', function(){ formatDepDate(this); });
 
 // ═══════════════════════════════════════════
 // FIELD FORMATTING — format on blur (when user leaves field)
@@ -279,25 +295,29 @@ input.error{border-color:#e74c3c}
 document.getElementById('dep-time').addEventListener('focus', function(){
   setTimeout(()=>this.select(), 10);
 });
-document.getElementById('dep-time').addEventListener('blur', function(){
-  let d = this.value.replace(/[^0-9]/g,'').slice(-4);
+function formatDepTime(el){
+  let d = el.value.replace(/[^0-9]/g,'').slice(-4);
   if(!d) d = '0000';
-  this.value = d.padStart(4,'0');
-});
+  el.value = d.padStart(4,'0');
+}
+document.getElementById('dep-time').addEventListener('blur', function(){ formatDepTime(this); });
+document.getElementById('dep-time').addEventListener('change', function(){ formatDepTime(this); });
 
 // Flight time: strip non-digits, take last 4, format as H+MM or HH+MM
 // "400" → "4+00", "1500" → "15+00", "730" → "7+30"
 document.getElementById('flt-time').addEventListener('focus', function(){
   setTimeout(()=>this.select(), 10);
 });
-document.getElementById('flt-time').addEventListener('blur', function(){
-  let d = this.value.replace(/[^0-9]/g,'');
-  if(!d){ this.value = ''; return; }
-  d = d.slice(-4); // max 4 digits
+function formatFltTime(el){
+  let d = el.value.replace(/[^0-9]/g,'');
+  if(!d){ el.value = ''; return; }
+  d = d.slice(-4);
   const mins = d.slice(-2).padStart(2,'0');
   const hrs = d.slice(0,-2) || '0';
-  this.value = hrs + '+' + mins;
-});
+  el.value = hrs + '+' + mins;
+}
+document.getElementById('flt-time').addEventListener('blur', function(){ formatFltTime(this); });
+document.getElementById('flt-time').addEventListener('change', function(){ formatFltTime(this); });
 function autoCalcGS(){
   if(!S.result) return;
   const fMins = parseFT(document.getElementById('flt-time').value);
@@ -1440,7 +1460,9 @@ async function handleAP(inp,stat,key){
 }
 
 document.getElementById('dep').addEventListener('blur',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
+document.getElementById('dep').addEventListener('change',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
 document.getElementById('dest').addEventListener('blur',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
+document.getElementById('dest').addEventListener('change',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
 
 document.querySelectorAll('.mode-btn').forEach(b=>{
   b.addEventListener('click',function(){
@@ -1453,9 +1475,10 @@ document.querySelectorAll('.mode-btn').forEach(b=>{
 document.getElementById('btn-calc').addEventListener('click',async function(){
   if(!S.dep){alert('Enter a valid departure airport ICAO code.');return;}
   if(!S.dest){alert('Enter a valid destination airport ICAO code.');return;}
-  const dv=document.getElementById('dep-date').value;
-  if(!dv){alert('Enter a departure date.');return;}
-  const[yr,mo,dy]=dv.split('-').map(Number);
+  const dv=document.getElementById('dep-date').value.replace(/[^0-9]/g,'');
+  if(dv.length!==8){alert('Enter date as YYYYMMDD, e.g. 20261221');return;}
+  const yr=parseInt(dv.slice(0,4)),mo=parseInt(dv.slice(4,6)),dy=parseInt(dv.slice(6,8));
+  if(mo<1||mo>12||dy<1||dy>31){alert('Invalid date. Use YYYYMMDD format, e.g. 20261221');return;}
   const dH=parseDT(document.getElementById('dep-time').value);
   const fM=parseFT(document.getElementById('flt-time').value);
   if(!fM||fM<=0){alert('Enter a valid flight time, e.g. 07+30');return;}
@@ -1524,6 +1547,8 @@ setTimeout(fetchDB, 800);
 // Default airports
 document.getElementById('dep').value='KBGR';
 document.getElementById('dest').value='VHHH';
+// Format date field on load
+formatDepDate(document.getElementById('dep-date'));
 setTimeout(async()=>{
   await handleAP(document.getElementById('dep'),document.getElementById('dep-status'),'dep');
   await handleAP(document.getElementById('dest'),document.getElementById('dest-status'),'dest');

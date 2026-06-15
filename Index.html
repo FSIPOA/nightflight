@@ -23,8 +23,12 @@ nav span.active{color:#5bc8f5;border-bottom:1px solid #5bc8f5;padding-bottom:2px
 /* MAIN — fills the 1fr row below the header */
 main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relative;height:100%}
 
-/* LEFT PANEL */
-#panel{background:#080c18;border-right:1px solid #1a3a5f;padding:14px 16px;display:flex;flex-direction:column;overflow-y:auto;z-index:5}
+/* LEFT PANEL — flex column, fixed height, never scrolls itself */
+#panel{background:#080c18;border-right:1px solid #1a3a5f;display:flex;flex-direction:column;overflow:hidden;z-index:5;height:100%}
+/* Scrollable content area inside panel */
+#panel-scroll{padding:14px 16px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* Fixed footer — always visible, never scrolls away */
+#animate-wrap{display:none;padding:8px 16px 10px;border-top:1px solid #1a3a5f;background:#080c18;flex-shrink:0}
 .section-label{font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:3px;color:#ffffff;text-transform:uppercase;margin:10px 0 6px;font-weight:700}
 .section-label:first-child{margin-top:0}
 .field{margin-bottom:8px}
@@ -58,10 +62,9 @@ input.error{border-color:#e74c3c}
 .solar-row:last-child{border-bottom:none}
 .solar-row .sl{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;color:#4a9abe}
 .solar-row .sv{font-family:'Share Tech Mono',monospace;font-size:13px;color:#7eb8e0}
-#btn-animate{background:#071a35;border:1px solid #1a4a6e;border-radius:7px;color:#3a8ab0;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;padding:9px;cursor:pointer;width:100%;margin-top:4px;transition:all .2s}
+#btn-animate{background:#071a35;border:1px solid #1a4a6e;border-radius:7px;color:#3a8ab0;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;padding:9px;cursor:pointer;width:100%;transition:all .2s}
 #btn-animate:hover{background:#0d3a6e;border-color:#1e6abf;color:#5bc8f5}
 #btn-animate.playing{color:#f5a623;border-color:#f5a623}
-#animate-wrap{display:none;position:sticky;bottom:0;background:#080c18;padding:8px 0 4px;border-top:1px solid #1a3a5f;margin-top:auto}
 
 /* GLOBE */
 #globe-wrap{position:relative;overflow:hidden;background:#000508;cursor:grab}
@@ -126,11 +129,10 @@ input.error{border-color:#e74c3c}
   .section-label{margin:6px 0 4px}
   .field{margin-bottom:5px}
   .field label{font-size:11px;margin-bottom:3px}
-  #btn-animate{padding:6px;margin-top:2px;font-size:11px}
   #btn-calc{padding:8px;margin-top:3px}
   .divider{margin:5px 0}
   .badge{font-size:11px;padding:3px 10px}
-  #panel{padding:10px 14px}
+  #panel-scroll{padding:10px 14px}
 }
 
 /* ROTATE MESSAGE */
@@ -170,6 +172,7 @@ input.error{border-color:#e74c3c}
 </header>
 <main>
 <div id="panel">
+<div id="panel-scroll">
   <div class="section-label">Route</div>
   <div class="field-row">
     <div class="field">
@@ -216,11 +219,12 @@ input.error{border-color:#e74c3c}
       <div class="solar-row"><span class="sl" id="dest-rise-lbl">DEST Sunrise −1hr</span><span class="sv" id="dest-sunrise">—</span></div>
     </div>
   </div>
-  <!-- Animate button outside results — sticky at panel bottom, always visible -->
-  <div id="animate-wrap">
-    <button id="btn-animate">&#9654;&nbsp; Animate Flight</button>
-  </div>
+</div><!-- end panel-scroll -->
+<!-- Animate button — fixed footer, never scrolls away -->
+<div id="animate-wrap">
+  <button id="btn-animate">&#9654;&nbsp; Animate Flight</button>
 </div>
+</div><!-- end panel -->
 
 <div id="globe-wrap">
   <canvas id="globe-canvas"></canvas>

@@ -21,10 +21,10 @@ nav span:hover{color:#7eb8e0}
 nav span.active{color:#5bc8f5;border-bottom:1px solid #5bc8f5;padding-bottom:2px}
 
 /* MAIN — fills the 1fr row below the header */
-main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relative;height:calc(100vh - 52px)}
+main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relative;height:calc(100dvh - 52px)}
 
 /* LEFT PANEL — flex column, fixed height, never scrolls itself */
-#panel{background:#080c18;border-right:1px solid #1a3a5f;display:flex;flex-direction:column;overflow:hidden;z-index:5;height:calc(100vh - 52px)}
+#panel{background:#080c18;border-right:1px solid #1a3a5f;display:flex;flex-direction:column;overflow:hidden;z-index:5;height:calc(100dvh - 52px)}
 /* Scrollable content area inside panel */
 #panel-scroll{padding:14px 16px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}
 /* Fixed footer — always visible, never scrolls away */
@@ -189,7 +189,12 @@ input.error{border-color:#e74c3c}
   </div>
   <div class="section-label">Departure (UTC)</div>
   <div class="field-row">
-    <div class="field"><label>Date</label><input type="date" id="dep-date" value="2026-12-21"/></div>
+    <div class="field"><label>Date</label>
+      <div style="position:relative">
+        <input type="text" id="dep-date-display" placeholder="21 Dec 2026" value="21 Dec 2026" readonly style="cursor:pointer"/>
+        <input type="date" id="dep-date" value="2026-12-21" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer"/>
+      </div>
+    </div>
     <div class="field"><label>Time (HHMM)</label><input type="text" id="dep-time" placeholder="0000" value="1200" maxlength="4" inputmode="numeric" autocomplete="off"/></div>
   </div>
   <div class="section-label">Flight Time</div>
@@ -1449,6 +1454,19 @@ async function handleAP(inp,stat,key){
     S[key]=null;stat.textContent='✗ NOT FOUND';stat.className='ap-status err';inp.classList.add('error');
   }
 }
+
+// Date picker — hidden native input drives visible styled display
+const depDateInput = document.getElementById('dep-date');
+const depDateDisplay = document.getElementById('dep-date-display');
+function updateDateDisplay(){
+  const v = depDateInput.value;
+  if(!v) return;
+  const [yr,mo,dy] = v.split('-').map(Number);
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  depDateDisplay.value = `${dy} ${months[mo-1]} ${yr}`;
+}
+depDateInput.addEventListener('change', updateDateDisplay);
+updateDateDisplay();
 
 document.getElementById('dep').addEventListener('blur',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
 document.getElementById('dep').addEventListener('change',function(){handleAP(this,document.getElementById('dep-status'),'dep');});

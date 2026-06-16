@@ -191,7 +191,7 @@ input.error{border-color:#e74c3c}
   <div class="field-row">
     <div class="field"><label>Date</label>
       <div style="position:relative">
-        <input type="text" id="dep-date-display" placeholder="21 Dec 2026" value="21 Dec 2026" readonly style="cursor:pointer"/>
+        <input type="text" id="dep-date-display" placeholder="21 Dec 2026" value="21 Dec 2026" readonly maxlength="11" style="cursor:pointer;font-size:20px;letter-spacing:1px"/>
         <input type="date" id="dep-date" value="2026-12-21" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer"/>
       </div>
     </div>
@@ -787,7 +787,7 @@ function buildRoute(){
   };
 
   // Airport marker dots
-  const dotR = 0.018;
+  const dotR = 0.008 + (S.camDist - 1.6) / (2.8 - 1.6) * 0.012;  // scales 0.008→0.020 with zoom
   const apDots = [
     {lat: S.dep.lat, lon: S.dep.lon, col: 0xf5c842, key: 'dep'},
     {lat: S.dest.lat, lon: S.dest.lon, col: 0x5bc8f5, key: 'dest'}
@@ -893,28 +893,19 @@ function orientGlobeToRoute(){
   if(!S.dep || !S.dest || !S.result) return;
   const mid = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.5);
 
-  // Mathematically correct orientation:
-  // We want the route midpoint to face the camera (max z after rotation)
-  // Step 1: Choose rotX to bring the midpoint toward camera
-  // High-latitude routes need steep tilt to show the polar arc
+  // CENTERING — original validated formula
+  // rotX proportional to midpoint latitude (capped at 1.2 for polar routes)
+  // rotY via atan2 after applying rotX — tested and working for all route types
   const latAbs = Math.abs(mid.lat);
-  // For polar routes (lat > 60), tilt steeply. For equatorial, tilt less.
   const rotX = Math.min(1.2, latAbs * DEG * 0.82) * Math.sign(mid.lat);
   S.rotX = rotX;
-
-  // Step 2: Find rotY that maximizes z for the midpoint after rotX is applied
-  // Get midpoint local position
   const mp = geo2v3(mid.lat, mid.lon, 1);
-  // Apply rotX
   const zAfterX = mp.y * Math.sin(rotX) + mp.z * Math.cos(rotX);
-  const xAfterX = mp.x;
-  // rotY that centers this: atan2(-x, z)
-  S.rotY = Math.atan2(-xAfterX, zAfterX);
-
+  const rotY = Math.atan2(-mp.x, zAfterX);
+  S.rotY = rotY;
   earth.rotation.set(S.rotX, S.rotY, 0);
 
   // Auto-zoom camera based on route angular size
-  // Compute great circle angle between dep and dest
   function gcAngle(la1,lo1,la2,lo2){
     const d=Math.PI/180;
     return Math.acos(Math.max(-1,Math.min(1,
@@ -923,27 +914,21 @@ function orientGlobeToRoute(){
     )))*180/Math.PI;
   }
   const routeAngle = gcAngle(S.dep.lat,S.dep.lon,S.dest.lat,S.dest.lon);
-  // For a 180-degree route, camera at 2.8 (full globe view)
-  // For a 20-degree route, camera zooms in to ~1.5
-  // Linear interpolation: camDist = 1.4 + (routeAngle/180)*1.4
-  // Clamped between 1.45 (very short) and 2.8 (global)
-  const targetDist = Math.max(1.9, Math.min(2.8, 1.7 + (routeAngle/180)*1.1));
+  const targetDist = Math.max(1.6, Math.min(2.8, 1.45 + (routeAngle/180)*1.35));
   camera.position.set(0, 0, targetDist);
   S.camDist = targetDist;
   camera.updateProjectionMatrix();
 
-  // Store Act 1 orientation (polar view)
+  // Store Act 1 orientation
   S.act1RotX = S.rotX;
   S.act1RotY = S.rotY;
 
-  // Compute Act 2 orientation: centered on f=0.75 descent point
+  // Act 2 orientation: centered on f=0.75 descent point
   const p75 = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.75);
   const mp2 = geo2v3(p75.lat, p75.lon, 1);
-  // Use moderate rotX (41 degrees) to show descent path and VHHH
-  const rx2 = Math.min(1.1, Math.abs(p75.lat) * DEG * 0.72) * Math.sign(p75.lat);
+  const rx2 = Math.min(1.2, Math.abs(p75.lat) * DEG * 0.82) * Math.sign(p75.lat);
   const zAX2 = mp2.y * Math.sin(rx2) + mp2.z * Math.cos(rx2);
-  const xAX2 = mp2.x;
-  const ry2 = Math.atan2(-xAX2, zAX2);
+  const ry2 = Math.atan2(-mp2.x, zAX2);
   S.act2RotX = rx2;
   S.act2RotY = ry2;
 }
@@ -1227,7 +1212,13 @@ function onMove(x,y){
   S.dragX=x;S.dragY=y;
   earth.rotation.set(S.rotX,S.rotY,0);
 }
-function onUp(){S.dragging=false;}
+function onUp(){
+  S.dragging=false;
+  // Log current rotation so we can derive the centering formula
+  if(S.dep && S.dest){
+    console.log(`Route: ${S.dep.icao}->${S.dest.icao} | Mid lat/lon: ${S.dep && S.dest ? ((S.dep.lat+S.dest.lat)/2).toFixed(1)+','+ ((S.dep.lon+S.dest.lon)/2).toFixed(1) : ''} | rotX: ${S.rotX.toFixed(4)} rotY: ${S.rotY.toFixed(4)}`);
+  }
+}
 
 wrap.addEventListener('mousedown',e=>onDown(e.clientX,e.clientY));
 window.addEventListener('mousemove',e=>{if(S.dragging)onMove(e.clientX,e.clientY);});

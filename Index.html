@@ -265,11 +265,13 @@ input.error{border-color:#e74c3c}
 // iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
 
-// Airport fields — clear on focus (desktop + iOS)
+// Airport fields — clear on focus only if field has content, so user can retype
 ['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
-  el.addEventListener('focus', function(){ this.value = ''; });
+  el.addEventListener('focus', function(){
+    if(this.value.trim().length > 0) this.value = '';
+  });
 });
 
 // Numeric fields — select-all on focus
@@ -1460,9 +1462,7 @@ depDateInput.addEventListener('change', updateDateDisplay);
 updateDateDisplay();
 
 document.getElementById('dep').addEventListener('blur',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
-document.getElementById('dep').addEventListener('change',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
 document.getElementById('dest').addEventListener('blur',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
-document.getElementById('dest').addEventListener('change',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
 
 document.querySelectorAll('.mode-btn').forEach(b=>{
   b.addEventListener('click',function(){

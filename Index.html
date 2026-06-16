@@ -292,7 +292,7 @@ input.error{border-color:#e74c3c}
 // Departure time: strip non-digits, take last 4, pad left with zeros
 // "100" → "0100", "1200" → "1200"
 document.getElementById('dep-time').addEventListener('focus', function(){
-  setTimeout(()=>this.select(), 10);
+  if(this.value.trim().length > 0) this.value = '';
 });
 function formatDepTime(el){
   let d = el.value.replace(/[^0-9]/g,'').slice(-4);
@@ -1477,6 +1477,9 @@ document.querySelectorAll('.mode-btn').forEach(b=>{
 
 // ── CALCULATE ──
 document.getElementById('btn-calc').addEventListener('click',async function(){
+  // Force-format all fields before reading — iOS blur may not have fired yet
+  formatDepTime(document.getElementById('dep-time'));
+  formatFltTime(document.getElementById('flt-time'));
   if(!S.dep){alert('Enter a valid departure airport ICAO code.');return;}
   if(!S.dest){alert('Enter a valid destination airport ICAO code.');return;}
   const dv=document.getElementById('dep-date').value;

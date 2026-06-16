@@ -265,11 +265,12 @@ input.error{border-color:#e74c3c}
 // iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
 
-// Airport fields — clear on focus only if field has content, so user can retype
+// Airport fields — clear on focus only if field has content and not mid-calculation
 ['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('focus', function(){
+    if(S.calculating) return;
     if(this.value.trim().length > 0) this.value = '';
   });
 });
@@ -304,7 +305,9 @@ document.getElementById('dep-time').addEventListener('change', function(){ forma
 
 // Flight time: strip non-digits, take last 4, format as H+MM or HH+MM
 // "400" → "4+00", "1500" → "15+00", "730" → "7+30"
-document.getElementById('flt-time').addEventListener('focus', function(){ setTimeout(()=>this.select(), 10); });
+document.getElementById('flt-time').addEventListener('focus', function(){
+  if(this.value.trim().length > 0) this.value = '';
+});
 document.getElementById('flt-time').addEventListener('keypress', function(e){ if(!/[0-9]/.test(e.key)) e.preventDefault(); });
 function formatFltTime(el){
   let d = el.value.replace(/[^0-9]/g,'');
@@ -354,7 +357,7 @@ function geo2v3(lat, lon, r){
 // ═══════════════════════════════════════════
 const S = {
   dep: null, dest: null, result: null,
-  animating: false, animFrame: null,
+  animating: false, animFrame: null, calculating: false,
   threshold: -6,
   rotY: 0, rotX: 0,
   dragging: false, dragX: 0, dragY: 0,
@@ -1477,9 +1480,7 @@ document.querySelectorAll('.mode-btn').forEach(b=>{
 
 // ── CALCULATE ──
 document.getElementById('btn-calc').addEventListener('click',async function(){
-  // Blur active field first so iOS commits any in-progress input
-  if(document.activeElement) document.activeElement.blur();
-  await new Promise(r=>setTimeout(r,50)); // let blur/change events settle
+  S.calculating = true;
   // Force-format all fields before reading — iOS blur may not have fired yet
   formatDepTime(document.getElementById('dep-time'));
   formatFltTime(document.getElementById('flt-time'));
@@ -1490,7 +1491,7 @@ document.getElementById('btn-calc').addEventListener('click',async function(){
   const[yr,mo,dy]=dv.split('-').map(Number);
   const dH=parseDT(document.getElementById('dep-time').value);
   const fM=parseFT(document.getElementById('flt-time').value);
-  if(!fM||fM<=0){alert('Enter a valid flight time, e.g. 07+30 (got: "'+document.getElementById('flt-time').value+'")');return;}
+  if(!fM||fM<=0){alert('Enter a valid flight time, e.g. 07+30');return;}
   this.disabled=true;
   document.getElementById('loading').classList.add('show');
   document.getElementById('loading-text').textContent='COMPUTING SOLAR POSITIONS...';
@@ -1540,6 +1541,7 @@ document.getElementById('btn-calc').addEventListener('click',async function(){
     console.error(e);alert('Calculation error: '+e.message);setStatus('ERROR',false);
   }
   this.disabled=false;
+  S.calculating = false;
   document.getElementById('loading').classList.remove('show');
 });
 

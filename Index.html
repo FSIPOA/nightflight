@@ -265,22 +265,16 @@ input.error{border-color:#e74c3c}
 // iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
 
-// Airport fields — only clear if not currently validated (user wants to change)
-// If S.dep/S.dest is set, the field has a good value — don't clear on accidental focus
+// Airport fields — clear on focus, unless Calculate is in progress
 ['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
   el.addEventListener('focus', function(){
-    const key = id; // 'dep' or 'dest'
     if(S.calculating) return;
-    // Only clear if there's no validated airport — if validated, user must
-    // deliberately select-all and retype to change it
-    if(!S[key]) {
-      if(this.value.trim().length > 0) this.value = '';
-    } else {
-      // Has validated airport — select all so user can type over it if they want
-      setTimeout(()=>this.select(), 10);
-    }
+    this.value = '';
+    S[id] = null; // clear validation so lookup runs again on blur
+    document.getElementById(id+'-status').textContent = '';
+    document.getElementById(id+'-status').className = 'ap-status';
   });
 });
 

@@ -1235,10 +1235,14 @@ wrap.addEventListener('wheel',e=>{
 
 function resize(){
   const w=wrap.clientWidth,h=wrap.clientHeight;
+  if(w===0||h===0) return; // guard against layout not ready
   renderer.setSize(w,h,false);
   camera.aspect=w/h;camera.updateProjectionMatrix();
 }
-window.addEventListener('resize',resize);resize();
+window.addEventListener('resize',resize);
+if(window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+// Defer initial resize — iOS Safari may not have finished layout at script run time
+requestAnimationFrame(()=>{ resize(); setTimeout(resize, 200); });
 
 // ═══════════════════════════════════════════
 // UI HELPERS

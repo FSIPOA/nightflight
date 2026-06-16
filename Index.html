@@ -265,17 +265,20 @@ input.error{border-color:#e74c3c}
 // iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
 
-// Airport fields — clear on focus, unless Calculate is in progress
+// Airport fields — clear on touchstart to beat iOS handle display
+// Also clear on focus for desktop mouse users
 ['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
-  el.addEventListener('focus', function(){
+  const clearField = function(){
     if(S.calculating) return;
     this.value = '';
-    S[id] = null; // clear validation so lookup runs again on blur
+    S[id] = null;
     document.getElementById(id+'-status').textContent = '';
     document.getElementById(id+'-status').className = 'ap-status';
-  });
+  };
+  el.addEventListener('touchstart', clearField, {passive: true});
+  el.addEventListener('focus', clearField);
 });
 
 // Numeric fields — select-all on focus

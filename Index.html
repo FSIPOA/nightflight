@@ -35,6 +35,8 @@ main{display:grid;grid-template-columns:440px 1fr;overflow:hidden;position:relat
 .field label{display:block;font-size:14px;letter-spacing:2px;color:#ffffff;text-transform:uppercase;margin-bottom:4px;font-weight:700}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 input[type=text],input[type=date]{width:100%;background:#0b1520;border:1px solid #1a3a5f;border-radius:5px;padding:10px 14px;color:#7eb8e0;font-family:'Share Tech Mono',monospace;font-size:30px;letter-spacing:3px;outline:none;transition:border-color .2s;text-align:center;height:64px;-webkit-appearance:none;appearance:none}
+/* Suppress iOS text-selection handles on airport code fields — they clear on tap so selection is never needed */
+#dep,#dest{-webkit-user-select:none;user-select:none}
 input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5) sepia(1) saturate(2) hue-rotate(180deg);cursor:pointer;width:24px;height:24px}
 input[type=text]:focus,input[type=date]:focus{border-color:#2a6fa8;color:#c8e8ff}
 input::placeholder{color:#1a3a5f}
@@ -265,8 +267,11 @@ input.error{border-color:#e74c3c}
 // iOS Safari note: never call focus() inside a touch handler — causes keyboard trap.
 // ═══════════════════════════════════════════
 
-// Airport fields — clear on touchstart to beat iOS handle display
-// Also clear on focus for desktop mouse users
+// Airport fields — clear on touchstart (iOS) and mousedown (desktop)
+// IMPORTANT: Do NOT use 'focus' to clear — on iPad, iOS fires spurious focus
+// events on these fields during navigation between other fields, causing the
+// airport to blank unexpectedly. touchstart + mousedown covers all real user
+// intent without the spurious-focus side-effect.
 ['dep','dest'].forEach(id => {
   const el = document.getElementById(id);
   if(!el) return;
@@ -278,7 +283,7 @@ input.error{border-color:#e74c3c}
     document.getElementById(id+'-status').className = 'ap-status';
   };
   el.addEventListener('touchstart', clearField, {passive: true});
-  el.addEventListener('focus', clearField);
+  el.addEventListener('mousedown', clearField);
 });
 
 // Numeric fields — select-all on focus
@@ -800,7 +805,10 @@ function buildRoute(){
   };
 
   // Airport marker dots
-  const dotR = 0.008 + (S.camDist - 1.6) / (2.8 - 1.6) * 0.012;  // scales 0.008→0.020 with zoom
+  // Dot radius proportional to camera distance so angular screen size stays constant.
+  // At camDist=1.6 (short/domestic, fully zoomed in): dotR=0.0045 — small, crisp
+  // At camDist=2.8 (intercontinental, wide view):     dotR=0.0078 — slightly larger
+  const dotR = S.camDist * 0.0028;
   const apDots = [
     {lat: S.dep.lat, lon: S.dep.lon, col: 0xf5c842, key: 'dep'},
     {lat: S.dest.lat, lon: S.dest.lon, col: 0x5bc8f5, key: 'dest'}

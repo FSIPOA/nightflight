@@ -1498,35 +1498,38 @@ const FB={
 };
 
 function parseCSV(line){const r=[];let c='',q=false;for(const ch of line){if(ch==='"'){q=!q;}else if(ch===','&&!q){r.push(c);c='';}else c+=ch;}r.push(c);return r;}
-let dbFetched=false,dbFetching=false;
-async function fetchDB(){
-  if(dbFetched||dbFetching)return;dbFetching=true;
-  // Try multiple sources in order — raw GitHub is CORS-safe in Safari
-  const urls=[
-    'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv',
-    'https://davidmegginson.github.io/ourairports-data/airports.csv',
-  ];
-  for(const url of urls){
-    try{
-      const r=await fetch(url);
-      if(!r.ok)continue;
-      const txt=await r.text(),lines=txt.split('\n');
-      // Strip quotes from header names — OurAirports CSV uses quoted headers
-      const h=lines[0].split(',').map(s=>s.replace(/"/g,'').trim());
-      const iI=h.indexOf('ident'),laI=h.indexOf('latitude_deg'),loI=h.indexOf('longitude_deg'),nI=h.indexOf('name');
-      if(iI<0||laI<0||loI<0){console.warn('OurAirports CSV format unexpected, skipping');continue;}
-      for(let i=1;i<lines.length;i++){
-        const c=parseCSV(lines[i]);if(!c[iI])continue;
-        const id=c[iI].replace(/"/g,'').trim(),la=parseFloat(c[laI]),lo=parseFloat(c[loI]),nm=(c[nI]||'').replace(/"/g,'');
-        if(id&&!isNaN(la)&&!isNaN(lo))CACHE[id]={lat:la,lon:lo,icao:id,name:nm};
-      }
-      dbFetched=true;
-      console.log('OurAirports database loaded: '+Object.keys(CACHE).length+' airports');
-      break;
-    }catch(e){ continue; }
-  }
-  dbFetching=false;
-  if(!dbFetched) dbFetched=true; // prevent infinite retry on total failure
+let dbFetched=false,dbFetchPromise=null;
+function fetchDB(){
+  // Return the existing Promise if a fetch is already in flight — callers await the same request
+  if(dbFetchPromise)return dbFetchPromise;
+  dbFetchPromise=(async()=>{
+    // Try multiple sources in order — raw GitHub is CORS-safe in Safari
+    const urls=[
+      'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv',
+      'https://davidmegginson.github.io/ourairports-data/airports.csv',
+    ];
+    for(const url of urls){
+      try{
+        const r=await fetch(url);
+        if(!r.ok)continue;
+        const txt=await r.text(),lines=txt.split('\n');
+        // Strip quotes from header names — OurAirports CSV uses quoted headers
+        const h=lines[0].split(',').map(s=>s.replace(/"/g,'').trim());
+        const iI=h.indexOf('ident'),laI=h.indexOf('latitude_deg'),loI=h.indexOf('longitude_deg'),nI=h.indexOf('name');
+        if(iI<0||laI<0||loI<0){console.warn('OurAirports CSV format unexpected, skipping');continue;}
+        for(let i=1;i<lines.length;i++){
+          const c=parseCSV(lines[i]);if(!c[iI])continue;
+          const id=c[iI].replace(/"/g,'').trim(),la=parseFloat(c[laI]),lo=parseFloat(c[loI]),nm=(c[nI]||'').replace(/"/g,'');
+          if(id&&!isNaN(la)&&!isNaN(lo))CACHE[id]={lat:la,lon:lo,icao:id,name:nm};
+        }
+        dbFetched=true;
+        console.log('OurAirports database loaded: '+Object.keys(CACHE).length+' airports');
+        break;
+      }catch(e){ continue; }
+    }
+    if(!dbFetched) dbFetched=true; // prevent retry on total failure
+  })();
+  return dbFetchPromise;
 }
 async function lookupAP(code){
   const c=code.toUpperCase().trim();

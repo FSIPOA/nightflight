@@ -193,8 +193,8 @@ input.error{border-color:#e74c3c}
   <div class="field-row">
     <div class="field"><label>Date</label>
       <div style="position:relative">
-        <input type="text" id="dep-date-display" placeholder="21 Dec 2026" value="21 Dec 2026" readonly maxlength="11" style="cursor:pointer;font-size:20px;letter-spacing:1px"/>
-        <input type="date" id="dep-date" value="2026-12-21" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer"/>
+        <input type="text" id="dep-date-display" placeholder="DD Mon YYYY" readonly maxlength="11" style="cursor:pointer;font-size:20px;letter-spacing:1px"/>
+        <input type="date" id="dep-date" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer"/>
       </div>
     </div>
     <div class="field"><label>Time (HHMM)</label><input type="text" id="dep-time" placeholder="0000" value="1200" maxlength="4" inputmode="numeric" autocomplete="off"/></div>
@@ -238,8 +238,8 @@ input.error{border-color:#e74c3c}
   <canvas id="globe-canvas"></canvas>
   <!-- CSS label layer — crisp DOM text, not canvas sprites -->
   <div id="label-layer">
-    <div class="ap-label dep" id="lbl-dep">KBGR</div>
-    <div class="ap-label dest" id="lbl-dest">VHHH</div>
+    <div class="ap-label dep" id="lbl-dep"></div>
+    <div class="ap-label dest" id="lbl-dest"></div>
   </div>
   <div id="hud"><div id="hud-time">—</div><div id="hud-stats">—</div></div>
   <div id="progress-wrap">
@@ -248,7 +248,7 @@ input.error{border-color:#e74c3c}
   </div>
   <div id="status-bar">
     <span><span class="sdot" id="sdot"></span><span id="status-text">LOADING...</span></span>
-    <span>WGS-84 · NOAA SOLAR</span>
+    <span id="geodesic-status">SLERP · NOAA SOLAR</span>
     <span id="status-time"></span>
   </div>
   <div id="loading"><div class="spinner"></div><div id="loading-text">LOADING EARTH TEXTURE...</div></div>
@@ -257,6 +257,7 @@ input.error{border-color:#e74c3c}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/geographiclib-geodesic@2.0.0/geographiclib-geodesic.min.js"></script>
 <script>
 'use strict';
 
@@ -546,7 +547,6 @@ const loader = new THREE.TextureLoader();
 loader.crossOrigin = 'anonymous';
 function loadTexture(){
   const urls = [
-    'https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74117/world.200412.3x8192x4096.jpg',
     'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
     'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg',
   ];
@@ -620,7 +620,62 @@ function sunWorldDir(jd){
 }
 
 // ═══════════════════════════════════════════
-// SLERP GREAT CIRCLE
+// KARNEY WGS-84 GEODESIC INTERPOLATION
+// Replaces SLERP spherical interpolation with true geodesic on the WGS-84
+// oblate ellipsoid (a=6378137m, f=1/298.257223563). This is the same datum
+// used by GPS, ICAO, and aviation authorities worldwide.
+// Uses geographiclib-geodesic by Charles Karney (MIT license).
+//
+// geodesicInterpolate(lat1, lon1, lat2, lon2, f) — same signature as slerp()
+//   f=0 returns departure, f=1 returns destination, f=0.5 returns midpoint
+//   Returns {lat, lon} on the WGS-84 geodesic between the two points.
+// ═══════════════════════════════════════════
+// Initialize Karney WGS-84 geodesic
+// Poll until the library global is available — handles async CDN loading
+let _geod = null;
+function tryInitKarney(){
+  try {
+    // geographiclib-geodesic v2 exports as GeographicLib global
+    if(typeof GeographicLib !== 'undefined' && GeographicLib.Geodesic){
+      _geod = GeographicLib.Geodesic.WGS84;
+      document.getElementById('geodesic-status').textContent = 'WGS-84 GEODESIC · NOAA SOLAR';
+      console.log('Karney WGS-84 geodesic ready');
+      return true;
+    }
+    // v1 style export
+    if(typeof geodesic !== 'undefined'){
+      _geod = geodesic.Geodesic.WGS84;
+      document.getElementById('geodesic-status').textContent = 'WGS-84 GEODESIC · NOAA SOLAR';
+      console.log('Karney WGS-84 geodesic ready (v1 export)');
+      return true;
+    }
+  } catch(e) { console.warn('Karney init error:', e); }
+  return false;
+}
+// Try immediately, then poll every 200ms for up to 10 seconds
+if(!tryInitKarney()){
+  let _karneyAttempts = 0;
+  const _karneyPoll = setInterval(()=>{
+    _karneyAttempts++;
+    if(tryInitKarney() || _karneyAttempts > 50){
+      clearInterval(_karneyPoll);
+      if(!_geod) console.warn('Karney library unavailable after 10s — using SLERP fallback');
+    }
+  }, 200);
+}
+
+function geodesicInterpolate(la1, lo1, la2, lo2, f) {
+  if(Math.abs(la1-la2) < 1e-10 && Math.abs(lo1-lo2) < 1e-10) return {lat: la1, lon: lo1};
+  if(!_geod) return slerp(la1, lo1, la2, lo2, f); // fallback if library failed to load
+  // Solve inverse problem: get total distance s12 and initial azimuth azi1
+  const inv = _geod.Inverse(la1, lo1, la2, lo2);
+  // Solve direct problem: walk f * s12 along the geodesic from the departure
+  const dir = _geod.Direct(la1, lo1, inv.azi1, f * inv.s12);
+  return {lat: dir.lat2, lon: dir.lon2};
+}
+
+// ═══════════════════════════════════════════
+// SLERP GREAT CIRCLE (retained for reference — superseded by Karney above)
 // ═══════════════════════════════════════════
 function slerp(la1,lo1,la2,lo2,f){
   // Work in standard lat/lon space for the math
@@ -661,7 +716,7 @@ function calcFlight(dLa,dLo,tLa,tLo,yr,mo,dy,dH,fMins,thr){
   let night=0,day=0;
   const track=[];
   for(let m=0;m<=fMins;m++){
-    const f=m/fMins,pos=slerp(dLa,dLo,tLa,tLo,f);
+    const f=m/fMins,pos=geodesicInterpolate(dLa,dLo,tLa,tLo,f);
     const jd=jd0+m/1440,el=solarElev(pos.lat,pos.lon,jd),isN=el<thr;
     if(m<fMins){isN?night++:day++;}
     track.push({m,lat:pos.lat,lon:pos.lon,el,isN,jd});
@@ -689,15 +744,21 @@ function calcFlight(dLa,dLo,tLa,tLo,yr,mo,dy,dH,fMins,thr){
   } else if(nEnd!==null){
     nightLanding=arrMin<=nEnd;
   }
-  // Great circle distance in nautical miles
-  // Earth radius = 3440.065 NM
-  function gcDist(la1,lo1,la2,lo2){
-    const R=3440.065,d=Math.PI/180;
-    const dLat=(la2-la1)*d,dLon=(lo2-lo1)*d;
-    const a=Math.sin(dLat/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLon/2)**2;
-    return R*2*Math.asin(Math.sqrt(a));
+  // Geodesic distance on WGS-84 ellipsoid via Karney (fallback to Haversine sphere if unavailable)
+  // 1 nautical mile = 1852 metres exactly (ICAO definition)
+  let distNM;
+  if(_geod){
+    const inv = _geod.Inverse(dLa, dLo, tLa, tLo);
+    distNM = Math.round(inv.s12 / 1852);
+  } else {
+    function gcDist(la1,lo1,la2,lo2){
+      const R=3440.065,d=Math.PI/180;
+      const dLat=(la2-la1)*d,dLon=(lo2-lo1)*d;
+      const a=Math.sin(dLat/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dLon/2)**2;
+      return R*2*Math.asin(Math.sqrt(a));
+    }
+    distNM = Math.round(gcDist(dLa,dLo,tLa,tLo));
   }
-  const distNM = Math.round(gcDist(dLa,dLo,tLa,tLo));
   return{night,day,track,nightLanding,distNM,jd0,fMins,
     dSunset:fmtUTC(dSol.set!==null?dSol.set+60:null),dSunrise:fmtUTC(dSol.rise!==null?dSol.rise-60:null),
     tSunset:fmtUTC(tSol.set!==null?tSol.set+60:null),tSunrise:fmtUTC(tSol.rise!==null?tSol.rise-60:null)};
@@ -722,7 +783,7 @@ function buildRoute(){
   for(let i = 0; i <= ROUTE_STEPS; i++){
     const f = -EXT + (1 + 2*EXT) * (i / ROUTE_STEPS);
     const fc = Math.max(0, Math.min(1, f));
-    const pos = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, fc);
+    const pos = geodesicInterpolate(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, fc);
     pts.push({pos, inRoute: f >= 0 && f <= 1, f: fc});
   }
 
@@ -914,7 +975,7 @@ function projectLabel(el, lat, lon){
 // ═══════════════════════════════════════════
 function orientGlobeToRoute(){
   if(!S.dep || !S.dest || !S.result) return;
-  const mid = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.5);
+  const mid = geodesicInterpolate(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.5);
 
   // CENTERING — original validated formula
   // rotX proportional to midpoint latitude (capped at 1.2 for polar routes)
@@ -949,7 +1010,7 @@ function orientGlobeToRoute(){
   S.act1RotY = S.rotY;
 
   // Act 2 orientation: centered on f=0.75 descent point
-  const p75 = slerp(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.75);
+  const p75 = geodesicInterpolate(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.75);
   const mp2 = geo2v3(p75.lat, p75.lon, 1);
   const rx2 = Math.min(1.2, Math.abs(p75.lat) * DEG * 0.82) * Math.sign(p75.lat);
   const zAX2 = mp2.y * Math.sin(rx2) + mp2.z * Math.cos(rx2);
@@ -1154,8 +1215,11 @@ function startAnim(){
       S.animating = false;
       document.getElementById('btn-animate').textContent = '↺  Replay';
       document.getElementById('btn-animate').classList.remove('playing');
-      document.getElementById('r-night-dec').textContent = fmtDec(S.result.night);
-      document.getElementById('r-day-dec').textContent = fmtDec(S.result.day);
+      const _aTotalTenths = Math.round((S.result.night + S.result.day) / 6) / 10;
+      const _aNightTenths = Math.round(S.result.night / 6) / 10;
+      const _aDayTenths = Math.round((_aTotalTenths - _aNightTenths) * 10) / 10;
+      document.getElementById('r-night-dec').textContent = _aNightTenths.toFixed(1) + ' hrs';
+      document.getElementById('r-day-dec').textContent = _aDayTenths.toFixed(1) + ' hrs';
       // Return camera to Calculate view position
       camera.position.set(0, 0, S.camDist || 2.6);
       camera.lookAt(0, 0, 0);
@@ -1437,19 +1501,32 @@ function parseCSV(line){const r=[];let c='',q=false;for(const ch of line){if(ch=
 let dbFetched=false,dbFetching=false;
 async function fetchDB(){
   if(dbFetched||dbFetching)return;dbFetching=true;
-  try{
-    const r=await fetch('https://davidmegginson.github.io/ourairports-data/airports.csv');
-    if(!r.ok)throw new Error();
-    const txt=await r.text(),lines=txt.split('\n'),h=lines[0].split(',');
-    const iI=h.indexOf('ident'),laI=h.indexOf('latitude_deg'),loI=h.indexOf('longitude_deg'),nI=h.indexOf('name');
-    for(let i=1;i<lines.length;i++){
-      const c=parseCSV(lines[i]);if(!c[iI])continue;
-      const id=c[iI].replace(/"/g,'').trim(),la=parseFloat(c[laI]),lo=parseFloat(c[loI]),nm=(c[nI]||'').replace(/"/g,'');
-      if(!isNaN(la)&&!isNaN(lo))CACHE[id]={lat:la,lon:lo,icao:id,name:nm};
-    }
-    dbFetched=true;
-  }catch(e){dbFetched=true;}
+  // Try multiple sources in order — raw GitHub is CORS-safe in Safari
+  const urls=[
+    'https://raw.githubusercontent.com/davidmegginson/ourairports-data/main/airports.csv',
+    'https://davidmegginson.github.io/ourairports-data/airports.csv',
+  ];
+  for(const url of urls){
+    try{
+      const r=await fetch(url);
+      if(!r.ok)continue;
+      const txt=await r.text(),lines=txt.split('\n');
+      // Strip quotes from header names — OurAirports CSV uses quoted headers
+      const h=lines[0].split(',').map(s=>s.replace(/"/g,'').trim());
+      const iI=h.indexOf('ident'),laI=h.indexOf('latitude_deg'),loI=h.indexOf('longitude_deg'),nI=h.indexOf('name');
+      if(iI<0||laI<0||loI<0){console.warn('OurAirports CSV format unexpected, skipping');continue;}
+      for(let i=1;i<lines.length;i++){
+        const c=parseCSV(lines[i]);if(!c[iI])continue;
+        const id=c[iI].replace(/"/g,'').trim(),la=parseFloat(c[laI]),lo=parseFloat(c[loI]),nm=(c[nI]||'').replace(/"/g,'');
+        if(id&&!isNaN(la)&&!isNaN(lo))CACHE[id]={lat:la,lon:lo,icao:id,name:nm};
+      }
+      dbFetched=true;
+      console.log('OurAirports database loaded: '+Object.keys(CACHE).length+' airports');
+      break;
+    }catch(e){ continue; }
+  }
   dbFetching=false;
+  if(!dbFetched) dbFetched=true; // prevent infinite retry on total failure
 }
 async function lookupAP(code){
   const c=code.toUpperCase().trim();
@@ -1486,7 +1563,15 @@ function updateDateDisplay(){
   depDateDisplay.value = `${dy} ${months[mo-1]} ${yr}`;
 }
 depDateInput.addEventListener('change', updateDateDisplay);
-updateDateDisplay();
+// Default to today's UTC date
+(function(){
+  const now = new Date();
+  const yr = now.getUTCFullYear();
+  const mo = String(now.getUTCMonth()+1).padStart(2,'0');
+  const dy = String(now.getUTCDate()).padStart(2,'0');
+  depDateInput.value = `${yr}-${mo}-${dy}`;
+  updateDateDisplay();
+})();
 
 document.getElementById('dep').addEventListener('blur',function(){handleAP(this,document.getElementById('dep-status'),'dep');});
 document.getElementById('dest').addEventListener('blur',function(){handleAP(this,document.getElementById('dest-status'),'dest');});
@@ -1531,15 +1616,19 @@ document.getElementById('btn-calc').addEventListener('click',async function(){
     const sd=sunWorldDir(res.jd0);
     sunLight.position.copy(sd.clone().multiplyScalar(50));
 
+    // Orient globe first — sets S.camDist which buildRoute() needs for dot/tube sizing
+    orientGlobeToRoute();
+
     // Build route geometry
     buildRoute();
 
-    // Orient globe to show route centered
-    orientGlobeToRoute();
-
     // Show results panel
-    document.getElementById('r-night-dec').textContent=fmtDec(res.night);
-    document.getElementById('r-day-dec').textContent=fmtDec(res.day);
+    // Round night to nearest tenth, derive day as total-night — guarantees they sum correctly
+    const _totalTenths = Math.round((res.night + res.day) / 6) / 10;
+    const _nightTenths = Math.round(res.night / 6) / 10;
+    const _dayTenths = Math.round((_totalTenths - _nightTenths) * 10) / 10;
+    document.getElementById('r-night-dec').textContent = _nightTenths.toFixed(1) + ' hrs';
+    document.getElementById('r-day-dec').textContent = _dayTenths.toFixed(1) + ' hrs';
     document.getElementById('r-dist').textContent=res.distNM.toLocaleString();
     // Auto-calculate groundspeed: distance / flight time
     const fMins = parseFT(document.getElementById('flt-time').value);
@@ -1581,14 +1670,7 @@ loadTexture();
 renderLoop();
 setTimeout(fetchDB, 800);
 
-// Default airports — load and auto-calculate so globe opens with route displayed
-document.getElementById('dep').value='KBGR';
-document.getElementById('dest').value='VHHH';
-setTimeout(async()=>{
-  await handleAP(document.getElementById('dep'),document.getElementById('dep-status'),'dep');
-  await handleAP(document.getElementById('dest'),document.getElementById('dest-status'),'dest');
-
-},700);
+// Airport fields open blank — user enters their own route
 
 // Airport fields — alphabetic characters only (A-Z)
 ['dep','dest'].forEach(id => {

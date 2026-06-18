@@ -546,6 +546,7 @@ const loader = new THREE.TextureLoader();
 loader.crossOrigin = 'anonymous';
 function loadTexture(){
   const urls = [
+    'https://eoimages.gsfc.nasa.gov/images/imagerecords/74000/74117/world.200412.3x8192x4096.jpg',
     'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
     'https://raw.githubusercontent.com/turban/webgl-earth/master/images/2_no_clouds_4k.jpg',
   ];
@@ -725,7 +726,8 @@ function buildRoute(){
     pts.push({pos, inRoute: f >= 0 && f <= 1, f: fc});
   }
 
-  const TUBE_R = 0.003;
+  // Tube radius scales with camera distance — consistent screen width at all zoom levels
+  const TUBE_R = S.camDist * 0.0012;
   const TUBE_SEGS = 5;
 
   // Extension tubes — dim, one each side
@@ -919,26 +921,28 @@ function orientGlobeToRoute(){
   // rotY via atan2 after applying rotX — tested and working for all route types
   const latAbs = Math.abs(mid.lat);
   const rotX = Math.min(1.2, latAbs * DEG * 0.82) * Math.sign(mid.lat);
-  S.rotX = rotX;
   const mp = geo2v3(mid.lat, mid.lon, 1);
   const zAfterX = mp.y * Math.sin(rotX) + mp.z * Math.cos(rotX);
   const rotY = Math.atan2(-mp.x, zAfterX);
-  S.rotY = rotY;
-  earth.rotation.set(S.rotX, S.rotY, 0);
 
-  // Auto-zoom camera based on route angular size
-  function gcAngle(la1,lo1,la2,lo2){
-    const d=Math.PI/180;
-    return Math.acos(Math.max(-1,Math.min(1,
-      Math.sin(la1*d)*Math.sin(la2*d)+
-      Math.cos(la1*d)*Math.cos(la2*d)*Math.cos((lo2-lo1)*d)
-    )))*180/Math.PI;
-  }
-  const routeAngle = gcAngle(S.dep.lat,S.dep.lon,S.dest.lat,S.dest.lon);
-  const targetDist = Math.max(1.6, Math.min(2.8, 1.45 + (routeAngle/180)*1.35));
+  // Auto-zoom: logarithmic curve on distNM — compresses long routes, spreads short ones
+  // Floor 1.5 — minimum safe distance for Blue Marble texture resolution
+  // Anchored: ~200NM→1.50, ~1750NM→1.72, ~3450NM→1.93, ~6800NM→2.20
+  const distNM = S.result.distNM;
+  const logMin = Math.log(200), logMax = Math.log(8000);
+  const logDist = Math.log(Math.max(200, Math.min(8000, distNM)));
+  const targetDist = Math.max(1.5, Math.min(2.5, 1.5 + 0.7 * (logDist - logMin) / (logMax - logMin)));
   camera.position.set(0, 0, targetDist);
   S.camDist = targetDist;
   camera.updateProjectionMatrix();
+
+  // Close-zoom centering bias — at camDist near floor (1.5), the projection geometry
+  // causes the midpoint to render slightly high on screen. Apply a small downward
+  // rotX nudge that fades to zero by camDist=1.7, leaving long routes unaffected.
+  const centeringBias = Math.max(0, (1.7 - S.camDist) * 0.45);
+  S.rotX = rotX + centeringBias;
+  S.rotY = rotY;
+  earth.rotation.set(S.rotX, S.rotY, 0);
 
   // Store Act 1 orientation
   S.act1RotX = S.rotX;
@@ -1577,13 +1581,23 @@ loadTexture();
 renderLoop();
 setTimeout(fetchDB, 800);
 
-// Default airports
+// Default airports — load and auto-calculate so globe opens with route displayed
 document.getElementById('dep').value='KBGR';
 document.getElementById('dest').value='VHHH';
 setTimeout(async()=>{
   await handleAP(document.getElementById('dep'),document.getElementById('dep-status'),'dep');
   await handleAP(document.getElementById('dest'),document.getElementById('dest-status'),'dest');
+
 },700);
+
+// Airport fields — alphabetic characters only (A-Z)
+['dep','dest'].forEach(id => {
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('keypress', function(e){
+    if(!/[a-zA-Z]/.test(e.key)) e.preventDefault();
+  });
+});
 </script>
 </body>
 </html>

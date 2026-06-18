@@ -975,16 +975,63 @@ function projectLabel(el, lat, lon){
 // ═══════════════════════════════════════════
 function orientGlobeToRoute(){
   if(!S.dep || !S.dest || !S.result) return;
-  const mid = geodesicInterpolate(S.dep.lat, S.dep.lon, S.dest.lat, S.dest.lon, 0.5);
+  // CENTERING — direct analytic formula for Three.js Euler XYZ.
+  //
+  // Three.js earth.rotation.set(rx, ry, 0) with Euler order XYZ applies the matrix:
+  //   wx =  cos(ry)*lx                        + sin(ry)*lz
+  //   wy =  sin(rx)*sin(ry)*lx + cos(rx)*ly  - sin(rx)*cos(ry)*lz
+  //   wz = -cos(rx)*sin(ry)*lx + sin(rx)*ly  + cos(rx)*cos(ry)*lz
+  //
+  // To centre the geodesic midpoint mp on screen (wx=0, wy=0, wz>0):
+  //   wx=0: ry = atan2(-mp.x, mp.z)                   [horizontal centering]
+  //   wy=0: rx = atan2(mp.y, sqrt(mp.x²+mp.z²))       [vertical centering]
+  //
+  // Proof that wz > 0 always: wz = cos(rx)*r_xz + sin(rx)*mp.y
+  //   = (r_xz/1)*r_xz + (mp.y/1)*mp.y = r_xz² + mp.y² = mp.x²+mp.z²+mp.y² = 1.
+  //   So wz = 1 always. No special-casing, no caps, no gimbal issues.
+  //   Both rx and ry are always within ±90°.
+  //
+  // rotX — vertical centering via chord midpoint.
+  // Vector addition of the two airport unit vectors gives the great-circle chord
+  // midpoint. atan2(mp.y, r_xz) centers it vertically. Always within ±90°,
+  // always produces wz=1 (midpoint faces camera). Path-direction-independent.
+  const dv = geo2v3(S.dep.lat,  S.dep.lon,  1);
+  const tv = geo2v3(S.dest.lat, S.dest.lon, 1);
+  const ms = Math.sqrt((dv.x+tv.x)**2 + (dv.y+tv.y)**2 + (dv.z+tv.z)**2);
+  const mp = { x:(dv.x+tv.x)/ms, y:(dv.y+tv.y)/ms, z:(dv.z+tv.z)/ms };
+  const r_xz = Math.sqrt(mp.x*mp.x + mp.z*mp.z);
+  const rotX = Math.atan2(mp.y, r_xz);
 
-  // CENTERING — original validated formula
-  // rotX proportional to midpoint latitude (capped at 1.2 for polar routes)
-  // rotY via atan2 after applying rotX — tested and working for all route types
-  const latAbs = Math.abs(mid.lat);
-  const rotX = Math.min(1.2, latAbs * DEG * 0.82) * Math.sign(mid.lat);
-  const mp = geo2v3(mid.lat, mid.lon, 1);
-  const zAfterX = mp.y * Math.sin(rotX) + mp.z * Math.cos(rotX);
-  const rotY = Math.atan2(-mp.x, zAfterX);
+  // rotY — primary: atan2(-mp.x, mp.z) horizontally centers the chord midpoint.
+  // For most routes this correctly shows the face the route crosses.
+  // Exception: when the chord midpoint is nearly behind the globe (mp.z near 0 and
+  // negative), the resulting view can be overly top-down with airports at the extreme
+  // top and bottom of the screen (|screen_y| > 0.65). In that case, fall back to
+  // deriving rotY from the dateline-aware midpoint longitude, which selects the
+  // oblique face the route actually crosses (e.g. Pacific for KBGR→VHHH).
+  const ryPrimary = Math.atan2(-mp.x, mp.z);
+  const dpTest = geo2v3(S.dep.lat,  S.dep.lon,  1);
+  const tpTest = geo2v3(S.dest.lat, S.dest.lon, 1);
+  const dpY = applyEulerXYZ_test(dpTest, rotX, ryPrimary);
+  const tpY = applyEulerXYZ_test(tpTest, rotX, ryPrimary);
+  // applyEulerXYZ_test is inlined below — we only need the y component
+  function applyEulerXYZ_test(p, rx, ry) {
+    const a=Math.cos(rx),b=Math.sin(rx),c=Math.cos(ry),d=Math.sin(ry);
+    return b*d*p.x + a*p.y - b*c*p.z;  // world-y only
+  }
+  const maxScreenY = Math.max(Math.abs(dpY), Math.abs(tpY));
+  let rotY;
+  if (maxScreenY > 0.65) {
+    // Too top-down — use dateline midLon for a better oblique view
+    let dLon = S.dest.lon - S.dep.lon;
+    if (dLon >  180) dLon -= 360;
+    if (dLon < -180) dLon += 360;
+    const midLon = S.dep.lon + dLon / 2;
+    const pML = geo2v3(0, midLon);
+    rotY = Math.atan2(-pML.x, pML.z);
+  } else {
+    rotY = ryPrimary;
+  }
 
   // Auto-zoom: logarithmic curve on distNM — compresses long routes, spreads short ones
   // Floor 1.5 — minimum safe distance for Blue Marble texture resolution

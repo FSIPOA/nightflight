@@ -304,7 +304,14 @@ input.error{border-color:#e74c3c}
 
 // Departure time: strip non-digits, take last 4, pad left with zeros
 // "100" → "0100", "1200" → "1200"
-document.getElementById('dep-time').addEventListener('focus', function(){
+// dep-time: clear on intentional tap/click only — NOT on focus, which iOS fires
+// spuriously during internal focus management, causing the field to blank when
+// the user taps another field (same root cause as the Destination field fix).
+document.getElementById('dep-time').addEventListener('touchstart', function(){
+  if(S.calculating) return;
+  if(this.value.trim().length > 0) this.value = '';
+}, {passive: true});
+document.getElementById('dep-time').addEventListener('mousedown', function(){
   if(S.calculating) return;
   if(this.value.trim().length > 0) this.value = '';
 });
@@ -318,7 +325,12 @@ document.getElementById('dep-time').addEventListener('change', function(){ forma
 
 // Flight time: strip non-digits, take last 4, format as H+MM or HH+MM
 // "400" → "4+00", "1500" → "15+00", "730" → "7+30"
-document.getElementById('flt-time').addEventListener('focus', function(){
+// flt-time: clear on intentional tap/click only — same fix as dep-time above.
+document.getElementById('flt-time').addEventListener('touchstart', function(){
+  if(S.calculating) return;
+  if(this.value.trim().length > 0) this.value = '';
+}, {passive: true});
+document.getElementById('flt-time').addEventListener('mousedown', function(){
   if(S.calculating) return;
   if(this.value.trim().length > 0) this.value = '';
 });
